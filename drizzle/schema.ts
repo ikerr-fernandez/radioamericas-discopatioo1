@@ -1,0 +1,36 @@
+import { boolean, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+
+export const users = mysqlTable("users", {
+  id: int("id").autoincrement().primaryKey(),
+  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  name: text("name"),
+  email: varchar("email", { length: 320 }),
+  loginMethod: varchar("loginMethod", { length: 64 }),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+});
+
+export const songRequests = mysqlTable("song_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  songTitle: varchar("songTitle", { length: 255 }).notNull(),
+  artist: varchar("artist", { length: 255 }).notNull(),
+  album: varchar("album", { length: 255 }),
+  year: int("year"),
+  requesterName: varchar("requesterName", { length: 120 }),
+  course: varchar("course", { length: 80 }),
+  dedication: text("dedication"),
+  sourceUrl: varchar("sourceUrl", { length: 500 }),
+  termsAccepted: boolean("termsAccepted").notNull().default(false),
+  termsVersion: varchar("termsVersion", { length: 32 }).notNull().default("2026-09-27-23:31"),
+  status: mysqlEnum("status", ["pending", "selected", "played", "rejected"]).default("pending").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
+export type SongRequest = typeof songRequests.$inferSelect;
+export type InsertSongRequest = typeof songRequests.$inferInsert;

@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1790448113249,
+      "tag": "0000_public_bill_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1790448183488,
+      "tag": "0001_heavy_miss_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1790544290195,
+      "tag": "0002_calm_johnny_blaze",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1790544790156,
+      "tag": "0003_premium_multiple_man",
+      "breakpoints": true
+    }
+  ]
+}

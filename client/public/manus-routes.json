@@ -1,0 +1,6 @@
+{
+  "routes": [
+    { "path": "/", "title": "Disco Patio" },
+    { "path": "/admin", "title": "Panel de administración" }
+  ]
+}

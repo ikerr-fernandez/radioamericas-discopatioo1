@@ -1,0 +1,1 @@
+ALTER TABLE `song_requests` MODIFY COLUMN `termsVersion` varchar(32) NOT NULL DEFAULT '2026-09-27-23:31';
