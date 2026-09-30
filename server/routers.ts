@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { clearTeamCookie, createTeamSession, isValidTeamCode, setTeamCookie } from "./_core/teamAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
-import { createSongRequest, listSongRequests, updateSongRequest } from "./db";
+import { createSiteFeedback, createSongRequest, listSiteFeedback, listSongRequests, updateSongRequest } from "./db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { isLikelyExplicitSong, TERMS_VERSION } from "@shared/contentModeration";
@@ -50,7 +50,7 @@ export const appRouter = router({
     }),
   }),
   music: router({
-    search: teamOnly.input(z.object({ query: z.string().trim().min(2).max(100) })).query(async ({ input }) => {
+    search: publicProcedure.input(z.object({ query: z.string().trim().min(2).max(100) })).query(async ({ input }) => {
       const url = new URL("https://itunes.apple.com/search");
       url.searchParams.set("term", input.query);
       url.searchParams.set("entity", "song");
@@ -78,15 +78,19 @@ export const appRouter = router({
     }),
   }),
   requests: router({
-    create: teamOnly.input(requestInput).mutation(async ({ input }) => {
+    create: publicProcedure.input(requestInput).mutation(async ({ input }) => {
       if (input.termsVersion !== TERMS_VERSION) throw new TRPCError({ code: "BAD_REQUEST", message: "Debes aceptar la versión actual de los términos." });
       if (isLikelyExplicitSong(input.songTitle, input.artist) && !input.explicitWarningAccepted) throw new TRPCError({ code: "BAD_REQUEST", message: "Esta canción parece contener contenido explícito. Confirma que quieres enviarla." });
       const { explicitWarningAccepted: _explicitWarningAccepted, ...request } = input;
-      await createSongRequest({ ...request, status: "pending" });
-      return { success: true } as const;
+      const result = await createSongRequest({ ...request, status: "pending" });
+      return { success: true, id: result.id } as const;
     }),
     adminList: teamOnly.query(() => listSongRequests()),
     update: teamOnly.input(z.object({ id: z.number().int(), status: z.enum(["pending", "selected", "played", "rejected"]), notes: z.string().max(1000).optional() })).mutation(({ input }) => updateSongRequest(input.id, { status: input.status, notes: input.notes })),
+  }),
+  feedback: router({
+    submit: publicProcedure.input(z.object({ requestId: z.number().int().positive(), rating: z.number().int().min(1).max(5) })).mutation(({ input }) => createSiteFeedback(input)),
+    adminList: teamOnly.query(() => listSiteFeedback()),
   }),
 });
 

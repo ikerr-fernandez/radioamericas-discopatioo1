@@ -13,6 +13,7 @@ const logoPath = "/logo_disco_patio.png";
 // 15:00 CEST (UTC+02:00) = 13:00 UTC. Keeping the instant explicit makes the
 // countdown correct even when the visitor's device uses another time zone.
 const OPEN_AT_MS = Date.parse("2026-10-01T13:00:00Z");
+const PREVIEW_BYPASS = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "1";
 
 type Countdown = { days: number; hours: number; minutes: number; seconds: number; total: number };
 
@@ -44,7 +45,7 @@ function OpeningCountdown() {
     return () => window.clearInterval(timer);
   }, []);
 
-  if (countdown.total <= 0) return <Router />;
+  if (countdown.total <= 0 || PREVIEW_BYPASS) return <Router />;
 
   const units = [
     [countdown.days, "días"],

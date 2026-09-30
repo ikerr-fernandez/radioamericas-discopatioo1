@@ -1,6 +1,6 @@
 import { desc, eq, notInArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertSongRequest, InsertUser, songRequests, users } from "../drizzle/schema";
+import { InsertSiteFeedback, InsertSongRequest, InsertUser, siteFeedback, songRequests, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -76,4 +76,17 @@ export async function updateSongRequest(id: number, input: Partial<InsertSongReq
   await db.update(songRequests).set(input).where(eq(songRequests.id, id));
   const rows = await db.select().from(songRequests).where(eq(songRequests.id, id)).limit(1);
   return rows[0];
+}
+
+export async function createSiteFeedback(input: InsertSiteFeedback) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.insert(siteFeedback).values(input);
+  return { success: true } as const;
+}
+
+export async function listSiteFeedback() {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  return db.select().from(siteFeedback).orderBy(desc(siteFeedback.createdAt)).limit(100);
 }

@@ -30,7 +30,16 @@ export const songRequests = mysqlTable("song_requests", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const siteFeedback = mysqlTable("site_feedback", {
+  id: int("id").autoincrement().primaryKey(),
+  requestId: int("requestId").notNull(),
+  rating: int("rating").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type SongRequest = typeof songRequests.$inferSelect;
 export type InsertSongRequest = typeof songRequests.$inferInsert;
+export type SiteFeedback = typeof siteFeedback.$inferSelect;
+export type InsertSiteFeedback = typeof siteFeedback.$inferInsert;
