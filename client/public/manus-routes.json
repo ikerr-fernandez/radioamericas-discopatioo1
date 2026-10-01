@@ -1,6 +1,6 @@
 {
   "routes": [
-    { "path": "/", "title": "Disco Patio" },
+    { "path": "/", "title": "Radio Patio Las Américas" },
     { "path": "/admin", "title": "Panel de administración" }
   ]
 }

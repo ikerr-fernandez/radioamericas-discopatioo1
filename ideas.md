@@ -1,7 +1,7 @@
-# Dirección visual — Disco Patio
+# Dirección visual — Radio Patio Las Américas
 
 ## Fuente
-Se conserva la identidad visual existente de Disco Patio y Radio América; este cambio es funcional y no introduce una dirección estética alternativa.
+Se conserva la identidad visual existente de Radio Patio Las Américas y Radio América; este cambio es funcional y no introduce una dirección estética alternativa.
 
 ## Movimiento de diseño
 Interfaz editorial de radio escolar con estética nocturna, azul profunda y acentos cian.
@@ -24,4 +24,4 @@ Actualización del contador cada segundo y desbloqueo automático al alcanzar ce
 Se conservan la tipografía, los pesos, el espaciado y la voz editorial actuales del proyecto.
 
 ## Marca
-Se conserva el logotipo existente de Disco Patio y el tratamiento de Radio América.
+Se conserva el logotipo existente de Radio Patio Las Américas y el tratamiento de Radio América.
