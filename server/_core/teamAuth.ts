@@ -4,7 +4,7 @@ import type { CookieOptions, Request, Response } from "express";
 import { TEAM_COOKIE_NAME } from "@shared/const";
 import { ENV } from "./env";
 
-export const TEAM_ACCESS_CODE = "IKERFERNANDEZ12ACCESO";
+export const TEAM_ACCESS_CODE = "VZXT5D4YGB0XR90P1F62F";
 const TEAM_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 const secretKey = () => new TextEncoder().encode(ENV.cookieSecret || "disco-patio-local-secret");
