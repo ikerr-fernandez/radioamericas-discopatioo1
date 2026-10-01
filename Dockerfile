@@ -10,8 +10,8 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 RUN pnpm build
-RUN pnpm prune --prod
-
+# The bundled server statically imports the dev Vite middleware module, so its
+# runtime dependency tree must remain available in the final image.
 FROM node:22-bookworm-slim
 
 WORKDIR /app
