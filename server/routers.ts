@@ -23,11 +23,11 @@ const requestInput = z.object({
   accessCode: z.string().trim().regex(/^[A-Z0-9]{21}$/i, "El código debe tener 21 caracteres").optional(),
 });
 
-const FIRST_OPEN_AT = Date.parse("2026-10-04T22:00:00Z");
+const FIRST_OPEN_AT = Date.parse("2026-10-07T12:00:00Z");
 const REQUEST_LIMIT = 30;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-function nextMondayAtMidnight(now = Date.now()) {
+function nextUnlockAt(now = Date.now()) {
   if (now < FIRST_OPEN_AT) return FIRST_OPEN_AT;
   return FIRST_OPEN_AT + (Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) + 1) * WEEK_MS;
 }
@@ -37,7 +37,7 @@ async function getPauseState() {
   const windowStart = now < FIRST_OPEN_AT ? FIRST_OPEN_AT : FIRST_OPEN_AT + Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) * WEEK_MS;
   const count = now < FIRST_OPEN_AT ? 0 : await countSongRequestsSince(new Date(windowStart));
   const paused = now < FIRST_OPEN_AT || count >= REQUEST_LIMIT;
-  return { paused, count, limit: REQUEST_LIMIT, unlockAt: paused ? nextMondayAtMidnight(now) : null };
+  return { paused, count, limit: REQUEST_LIMIT, unlockAt: paused ? nextUnlockAt(now) : null };
 }
 
 const teamOnly = adminProcedure.use(({ ctx, next }) => {
