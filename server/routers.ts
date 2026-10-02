@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { clearTeamCookie, createTeamSession, isValidTeamCode, setTeamCookie } from "./_core/teamAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
-import { countSongRequestsSince, createSiteFeedback, createSongRequest, isAccessCodeAvailable, listSiteFeedback, listSongRequests, redeemAccessCode, updateSongRequest } from "./db";
+import { ENV } from "./_core/env";
+import { countSongRequestsSince, createRequestActivity, createSiteFeedback, createSongRequest, isAccessCodeAvailable, listActiveVisitors, listRequestActivity, listSiteFeedback, listSongRequests, redeemAccessCode, updateSongRequest, upsertActiveVisitor } from "./db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { isLikelyExplicitSong, TERMS_VERSION } from "@shared/contentModeration";
@@ -40,6 +42,16 @@ async function getPauseState() {
   return { paused, count, limit: REQUEST_LIMIT, unlockAt: paused ? nextUnlockAt(now) : null };
 }
 
+const getClientIp = (req: { headers: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } }) => String(req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown").split(",")[0].trim();
+const getActivityMetadata = (req: { headers: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } }) => {
+  const userAgent = String(req.headers["user-agent"] ?? "").toLowerCase();
+  const day = new Date().toISOString().slice(0, 10);
+  const ipHash = createHash("sha256").update(`${ENV.cookieSecret || ENV.appId || "activity-salt"}|${day}|${getClientIp(req)}`).digest("hex").slice(0, 32);
+  const deviceType = /tablet|ipad/.test(userAgent) ? "tablet" : /mobile|android|iphone/.test(userAgent) ? "móvil" : "ordenador";
+  const browser = /edg\//.test(userAgent) ? "Edge" : /chrome\//.test(userAgent) ? "Chrome" : /firefox\//.test(userAgent) ? "Firefox" : /safari\//.test(userAgent) ? "Safari" : "Otro";
+  return { ipHash, deviceType, browser } as const;
+};
+
 const teamOnly = adminProcedure.use(({ ctx, next }) => {
   if (ctx.user.loginMethod !== "team-code" || ctx.user.openId !== "disco-patio-team") throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas el código privado de acceso." });
   return next({ ctx });
@@ -66,6 +78,10 @@ export const appRouter = router({
       clearTeamCookie(ctx.res, ctx.req);
       return { success: true } as const;
     }),
+  }),
+  activity: router({
+    heartbeat: publicProcedure.input(z.object({ sessionId: z.string().regex(/^[a-zA-Z0-9_-]{16,64}$/) })).mutation(async ({ ctx, input }) => { await upsertActiveVisitor({ sessionId: input.sessionId, ...getActivityMetadata(ctx.req) }); return { ok: true } as const; }),
+    adminLive: teamOnly.query(async () => ({ visitors: await listActiveVisitors(), requests: await listRequestActivity() })),
   }),
   music: router({
     search: publicProcedure.input(z.object({ query: z.string().trim().min(2).max(100) })).query(async ({ input }) => {
@@ -98,7 +114,7 @@ export const appRouter = router({
   requests: router({
     status: publicProcedure.query(() => getPauseState()),
     checkAccessCode: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{21}$/i) })).mutation(async ({ input }) => ({ valid: await isAccessCodeAvailable(input.code.toUpperCase()) })),
-    create: publicProcedure.input(requestInput).mutation(async ({ input }) => {
+    create: publicProcedure.input(requestInput).mutation(async ({ ctx, input }) => {
       if (input.termsVersion !== TERMS_VERSION) throw new TRPCError({ code: "BAD_REQUEST", message: "Debes aceptar la versión actual de los términos." });
       if (isLikelyExplicitSong(input.songTitle, input.artist) && !input.explicitWarningAccepted) throw new TRPCError({ code: "BAD_REQUEST", message: "Esta canción parece contener contenido explícito. Confirma que quieres enviarla." });
       const pause = await getPauseState();
@@ -108,6 +124,7 @@ export const appRouter = router({
       }
       const { explicitWarningAccepted: _explicitWarningAccepted, accessCode: _accessCode, ...request } = input;
       const result = await createSongRequest({ ...request, status: "pending" });
+      await createRequestActivity({ requestId: result.id, ...getActivityMetadata(ctx.req), accessCodeUsed: Boolean(code) });
       return { success: true, id: result.id } as const;
     }),
     adminList: teamOnly.query(() => listSongRequests()),

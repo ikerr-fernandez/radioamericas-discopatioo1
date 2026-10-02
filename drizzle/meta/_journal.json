@@ -43,6 +43,13 @@
       "when": 1790958660476,
       "tag": "0005_harsh_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1790959873769,
+      "tag": "0006_complex_tag",
+      "breakpoints": true
     }
   ]
 }

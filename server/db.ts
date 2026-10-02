@@ -1,6 +1,6 @@
-import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, notInArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { accessCodes, InsertSiteFeedback, InsertSongRequest, InsertUser, siteFeedback, songRequests, users } from "../drizzle/schema";
+import { accessCodes, activeVisitors, InsertRequestActivity, InsertSiteFeedback, InsertSongRequest, InsertUser, requestActivity, siteFeedback, songRequests, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -64,6 +64,34 @@ export async function createSongRequest(input: InsertSongRequest) {
   return { id: Number(result[0].insertId) };
 }
 
+export async function createRequestActivity(input: InsertRequestActivity) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.insert(requestActivity).values(input);
+}
+
+export async function upsertActiveVisitor(input: typeof activeVisitors.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const cutoff = new Date(Date.now() - 60 * 60 * 1000);
+  await db.delete(activeVisitors).where(lt(activeVisitors.lastSeen, cutoff));
+  await db.insert(activeVisitors).values({ ...input, lastSeen: new Date() }).onDuplicateKeyUpdate({ set: { ipHash: input.ipHash, deviceType: input.deviceType, browser: input.browser, lastSeen: new Date() } });
+}
+
+export async function listActiveVisitors() {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const cutoff = new Date(Date.now() - 2 * 60 * 1000);
+  await db.delete(activeVisitors).where(lt(activeVisitors.lastSeen, new Date(Date.now() - 60 * 60 * 1000)));
+  return db.select().from(activeVisitors).where(sql`${activeVisitors.lastSeen} >= ${cutoff}`).orderBy(desc(activeVisitors.lastSeen));
+}
+
+export async function listRequestActivity() {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  return db.select({ requestId: songRequests.id, songTitle: songRequests.songTitle, artist: songRequests.artist, requesterName: songRequests.requesterName, course: songRequests.course, createdAt: songRequests.createdAt, ipHash: requestActivity.ipHash, deviceType: requestActivity.deviceType, browser: requestActivity.browser, accessCodeUsed: requestActivity.accessCodeUsed }).from(requestActivity).innerJoin(songRequests, eq(requestActivity.requestId, songRequests.id)).orderBy(desc(songRequests.createdAt)).limit(50);
+}
+
 export async function countSongRequestsSince(since: Date) {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
@@ -89,6 +117,8 @@ export async function ensurePauseAccessCode() {
   const db = await getDb();
   if (!db) return;
   await db.execute(sql`CREATE TABLE IF NOT EXISTS access_codes (code varchar(32) NOT NULL PRIMARY KEY, usedAt timestamp NULL)`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS active_visitors (sessionId varchar(64) NOT NULL PRIMARY KEY, ipHash varchar(128), deviceType varchar(32), browser varchar(80), lastSeen timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS request_activity (requestId int NOT NULL PRIMARY KEY, ipHash varchar(128), deviceType varchar(32), browser varchar(80), accessCodeUsed boolean NOT NULL DEFAULT false)`);
   await db.insert(accessCodes).values({ code: "NV4SXULY75CS1DABNGXD0" }).onDuplicateKeyUpdate({ set: { code: "NV4SXULY75CS1DABNGXD0" } });
 }
 

@@ -30,6 +30,22 @@ export const songRequests = mysqlTable("song_requests", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const requestActivity = mysqlTable("request_activity", {
+  requestId: int("requestId").primaryKey(),
+  ipHash: varchar("ipHash", { length: 128 }),
+  deviceType: varchar("deviceType", { length: 32 }),
+  browser: varchar("browser", { length: 80 }),
+  accessCodeUsed: boolean("accessCodeUsed").notNull().default(false),
+});
+
+export const activeVisitors = mysqlTable("active_visitors", {
+  sessionId: varchar("sessionId", { length: 64 }).primaryKey(),
+  ipHash: varchar("ipHash", { length: 128 }),
+  deviceType: varchar("deviceType", { length: 32 }),
+  browser: varchar("browser", { length: 80 }),
+  lastSeen: timestamp("lastSeen").defaultNow().onUpdateNow().notNull(),
+});
+
 export const siteFeedback = mysqlTable("site_feedback", {
   id: int("id").autoincrement().primaryKey(),
   requestId: int("requestId").notNull(),
@@ -46,6 +62,10 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type SongRequest = typeof songRequests.$inferSelect;
 export type InsertSongRequest = typeof songRequests.$inferInsert;
+export type RequestActivity = typeof requestActivity.$inferSelect;
+export type InsertRequestActivity = typeof requestActivity.$inferInsert;
+export type ActiveVisitor = typeof activeVisitors.$inferSelect;
+export type InsertActiveVisitor = typeof activeVisitors.$inferInsert;
 export type SiteFeedback = typeof siteFeedback.$inferSelect;
 export type InsertSiteFeedback = typeof siteFeedback.$inferInsert;
 export type AccessCode = typeof accessCodes.$inferSelect;
