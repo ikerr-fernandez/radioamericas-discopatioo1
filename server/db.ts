@@ -1,6 +1,6 @@
-import { desc, eq, notInArray } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertSiteFeedback, InsertSongRequest, InsertUser, siteFeedback, songRequests, users } from "../drizzle/schema";
+import { accessCodes, InsertSiteFeedback, InsertSongRequest, InsertUser, siteFeedback, songRequests, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -62,6 +62,34 @@ export async function createSongRequest(input: InsertSongRequest) {
   if (!db) throw new Error("Database unavailable");
   const result = await db.insert(songRequests).values(input);
   return { id: Number(result[0].insertId) };
+}
+
+export async function countSongRequestsSince(since: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const result = await db.select({ count: sql<number>`count(*)` }).from(songRequests).where(sql`${songRequests.createdAt} >= ${since}`);
+  return Number(result[0]?.count ?? 0);
+}
+
+export async function isAccessCodeAvailable(code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const rows = await db.select({ code: accessCodes.code }).from(accessCodes).where(and(eq(accessCodes.code, code), isNull(accessCodes.usedAt))).limit(1);
+  return rows.length > 0;
+}
+
+export async function redeemAccessCode(code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const result = await db.update(accessCodes).set({ usedAt: new Date() }).where(and(eq(accessCodes.code, code), isNull(accessCodes.usedAt)));
+  return Number(result[0]?.affectedRows ?? 0) > 0;
+}
+
+export async function ensurePauseAccessCode() {
+  const db = await getDb();
+  if (!db) return;
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS access_codes (code varchar(32) NOT NULL PRIMARY KEY, usedAt timestamp NULL)`);
+  await db.insert(accessCodes).values({ code: "NV4SXULY75CS1DABNGXD0" }).onDuplicateKeyUpdate({ set: { code: "NV4SXULY75CS1DABNGXD0" } });
 }
 
 export async function listSongRequests() {

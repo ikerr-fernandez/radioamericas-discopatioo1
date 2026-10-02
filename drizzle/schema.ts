@@ -37,9 +37,16 @@ export const siteFeedback = mysqlTable("site_feedback", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const accessCodes = mysqlTable("access_codes", {
+  code: varchar("code", { length: 32 }).primaryKey(),
+  usedAt: timestamp("usedAt"),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type SongRequest = typeof songRequests.$inferSelect;
 export type InsertSongRequest = typeof songRequests.$inferInsert;
 export type SiteFeedback = typeof siteFeedback.$inferSelect;
 export type InsertSiteFeedback = typeof siteFeedback.$inferInsert;
+export type AccessCode = typeof accessCodes.$inferSelect;
+export type InsertAccessCode = typeof accessCodes.$inferInsert;

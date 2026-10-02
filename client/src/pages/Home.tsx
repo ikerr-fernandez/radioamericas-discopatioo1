@@ -6,12 +6,50 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, Disc3, Headphones, Loader2, Mail, Mic2, Search, ShieldAlert, Sparkles, Star, XCircle } from "lucide-react";
+import { Check, Clock3, Disc3, Headphones, Info, KeyRound, Loader2, Mail, Mic2, Search, ShieldAlert, Sparkles, Star, XCircle } from "lucide-react";
 import { isLikelyExplicitSong, TERMS_LAST_UPDATED, TERMS_VERSION } from "@shared/contentModeration";
 
 const logoPath = "/logo_disco_patio.png";
 type Explicitness = "explicit" | "cleaned" | "notExplicit" | "unknown";
 type Track = { id: string; title: string; artist: string; album: string; year?: number; previewUrl?: string; artworkUrl?: string; sourceUrl?: string; explicitness?: Explicitness };
+
+function PauseGate({ unlockAt, onUnlock }: { unlockAt: number; onUnlock: (code: string) => void }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, unlockAt - Date.now()));
+  const [code, setCode] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setRemaining(Math.max(0, unlockAt - Date.now())), 1000);
+    return () => window.clearInterval(timer);
+  }, [unlockAt]);
+
+  const totalSeconds = Math.floor(remaining / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const submitCode = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (code.trim().length !== 21) return toast.error("Código incompleto", { description: "Introduce el código de 21 caracteres." });
+    onUnlock(code.trim().toUpperCase());
+  };
+
+  return <div className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 py-8 text-slate-100">
+    <div className="w-full max-w-lg rounded-[2rem] border border-cyan-300/20 bg-white/[0.045] p-6 text-center shadow-2xl shadow-black/20 sm:p-9">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10"><Clock3 className="h-8 w-8 text-cyan-300" /></div>
+      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.28em] text-cyan-300">Radio Patio Las Américas</p>
+      <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Estamos recibiendo muchas solicitudes</h1>
+      <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-300">Por favor, espera hasta que pase el tiempo del contador. Hasta el lunes no se pueden enviar canciones.</p>
+      <div className="mt-7 grid grid-cols-4 gap-2" aria-live="polite" aria-label="Tiempo restante hasta poder enviar canciones">
+        {[[days, "días"], [hours, "horas"], [minutes, "minutos"], [seconds, "segundos"]].map(([value, label]) => <div key={label} className="rounded-2xl border border-white/10 bg-[#07111f]/80 px-2 py-3"><p className="font-mono text-xl font-bold text-cyan-200 sm:text-2xl">{label === "días" ? value : String(value).padStart(2, "0")}</p><p className="mt-1 text-[9px] uppercase tracking-wider text-slate-500">{label}</p></div>)}
+      </div>
+      <div className="mt-8 border-t border-white/10 pt-6">
+        <button type="button" onClick={() => setDetailsOpen(open => !open)} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-cyan-200 hover:text-white"><KeyRound className="h-4 w-4" />Tengo un código para enviar una canción</button>
+        {detailsOpen && <div className="mt-4 rounded-2xl border border-blue-200/15 bg-blue-300/[0.08] p-4 text-left text-sm leading-6 text-slate-300"><p className="flex gap-2"><Info className="mt-1 h-4 w-4 shrink-0 text-cyan-300" />Escriba a un administrador por Insta o por cualquier vía de contacto personal y te podrán facilitar un código para subir una canción.</p><form onSubmit={submitCode} className="mt-4 flex flex-col gap-2 sm:flex-row"><input value={code} onChange={event => setCode(event.target.value.replace(/[^a-z0-9]/gi, "").slice(0, 21).toUpperCase())} placeholder="Código de 21 caracteres" maxLength={21} aria-label="Código de acceso" className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#07111f] px-3 font-mono text-sm tracking-wider text-white outline-none focus:border-cyan-300" /><button type="submit" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 text-sm font-semibold text-[#07111f] hover:bg-cyan-200"><KeyRound className="h-4 w-4" />Continuar</button></form></div>}
+      </div>
+    </div>
+  </div>;
+}
 
 export default function Home() {
   const { user } = useAuth();
@@ -30,12 +68,19 @@ export default function Home() {
   const [explicitPopupOpen, setExplicitPopupOpen] = useState(false);
   const [feedbackRequestId, setFeedbackRequestId] = useState<number | null>(null);
   const [feedbackRating, setFeedbackRating] = useState(0);
+  const [accessCode, setAccessCode] = useState("");
+  const [accessUnlocked, setAccessUnlocked] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearchQuery(searchText.trim()), 350);
     return () => window.clearTimeout(timer);
   }, [searchText]);
 
+  const pause = trpc.requests.status.useQuery(undefined, { refetchInterval: 15_000 });
+  const checkAccessCode = trpc.requests.checkAccessCode.useMutation({
+    onSuccess: ({ valid }) => valid ? (setAccessUnlocked(true), toast.success("Código aceptado")) : toast.error("Código no válido o ya utilizado"),
+    onError: error => toast.error("No se pudo comprobar el código", { description: error.message }),
+  });
   const search = trpc.music.search.useQuery({ query: searchQuery }, { enabled: searchQuery.length >= 2, staleTime: 60_000 });
   const selectedSongIsExplicit = isLikelyExplicitSong(songTitle, artist, selectedTrack?.explicitness);
   const submitFeedback = trpc.feedback.submit.useMutation({
@@ -71,8 +116,10 @@ export default function Home() {
     if (!songTitle.trim() || !artist.trim() || !requesterName.trim() || !course.trim()) return toast.error("Faltan datos", { description: "Indica la canción, el nombre del alumno y el curso." });
     if (!termsAccepted) return toast.error("Falta aceptar los términos", { description: "Marca la casilla para poder enviar tus datos." });
     if (selectedSongIsExplicit && !explicitWarningAccepted) { setExplicitPopupOpen(true); return; }
-    createRequest.mutate({ songTitle: songTitle.trim(), artist: artist.trim(), album: album.trim() || undefined, year: year ? Number(year) : undefined, requesterName: requesterName.trim(), course: course.trim(), dedication: dedication.trim() || undefined, sourceUrl: selectedTrack?.sourceUrl, termsAccepted: true, termsVersion: TERMS_VERSION, explicitWarningAccepted: selectedSongIsExplicit ? explicitWarningAccepted : false });
+    createRequest.mutate({ songTitle: songTitle.trim(), artist: artist.trim(), album: album.trim() || undefined, year: year ? Number(year) : undefined, requesterName: requesterName.trim(), course: course.trim(), dedication: dedication.trim() || undefined, sourceUrl: selectedTrack?.sourceUrl, termsAccepted: true, termsVersion: TERMS_VERSION, explicitWarningAccepted: selectedSongIsExplicit ? explicitWarningAccepted : false, accessCode: accessUnlocked ? accessCode.trim().toUpperCase() : undefined });
   };
+
+  if (pause.data?.paused && !accessUnlocked) return <PauseGate unlockAt={pause.data.unlockAt ?? Date.now()} onUnlock={code => { setAccessCode(code); checkAccessCode.mutate({ code }); }} />;
 
   return <div className="min-h-screen overflow-hidden bg-[#07111f] text-slate-100">
     <header className="welcome-header relative z-10 border-b border-white/10 bg-[#07111f]/90 backdrop-blur-xl"><div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-5 lg:px-8"><Link href="/" className="flex min-w-0 items-center gap-2.5"><img src={logoPath} alt="Radio Patio Las Américas" className="h-11 w-11 rounded-full border border-blue-300/30 object-cover sm:h-12 sm:w-12" /><div className="min-w-0"><p className="font-mono text-[9px] uppercase tracking-[0.28em] text-blue-200/70">Radio América</p><p className="truncate text-base font-bold sm:text-lg">Radio Patio Las Américas</p></div></Link><div className="flex items-center gap-2 sm:gap-3"><span className="hidden rounded-full border border-blue-200/15 bg-white/5 px-3 py-1.5 text-xs text-blue-100/70 sm:inline-flex"><span className="mr-2 h-2 w-2 self-center rounded-full bg-cyan-300 shadow-[0_0_14px_#67e8f9]" />Jueves · recreo</span><Link href="/admin"><Button variant="outline" className="border-blue-200/25 bg-transparent px-2.5 text-xs text-blue-50 hover:bg-blue-300/10 sm:px-3 sm:text-sm">{user?.role === "admin" ? "Panel" : "Equipo"}</Button></Link></div></div></header>

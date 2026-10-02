@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { clearTeamCookie, createTeamSession, isValidTeamCode, setTeamCookie } from "./_core/teamAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
-import { createSiteFeedback, createSongRequest, listSiteFeedback, listSongRequests, updateSongRequest } from "./db";
+import { countSongRequestsSince, createSiteFeedback, createSongRequest, isAccessCodeAvailable, listSiteFeedback, listSongRequests, redeemAccessCode, updateSongRequest } from "./db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { isLikelyExplicitSong, TERMS_VERSION } from "@shared/contentModeration";
@@ -20,7 +20,25 @@ const requestInput = z.object({
   termsAccepted: z.literal(true, { error: "Debes aceptar los términos para enviar la petición" }),
   termsVersion: z.literal(TERMS_VERSION),
   explicitWarningAccepted: z.boolean().default(false),
+  accessCode: z.string().trim().regex(/^[A-Z0-9]{21}$/i, "El código debe tener 21 caracteres").optional(),
 });
+
+const FIRST_OPEN_AT = Date.parse("2026-10-04T22:00:00Z");
+const REQUEST_LIMIT = 30;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function nextMondayAtMidnight(now = Date.now()) {
+  if (now < FIRST_OPEN_AT) return FIRST_OPEN_AT;
+  return FIRST_OPEN_AT + (Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) + 1) * WEEK_MS;
+}
+
+async function getPauseState() {
+  const now = Date.now();
+  const windowStart = now < FIRST_OPEN_AT ? FIRST_OPEN_AT : FIRST_OPEN_AT + Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) * WEEK_MS;
+  const count = now < FIRST_OPEN_AT ? 0 : await countSongRequestsSince(new Date(windowStart));
+  const paused = now < FIRST_OPEN_AT || count >= REQUEST_LIMIT;
+  return { paused, count, limit: REQUEST_LIMIT, unlockAt: paused ? nextMondayAtMidnight(now) : null };
+}
 
 const teamOnly = adminProcedure.use(({ ctx, next }) => {
   if (ctx.user.loginMethod !== "team-code" || ctx.user.openId !== "disco-patio-team") throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas el código privado de acceso." });
@@ -78,10 +96,17 @@ export const appRouter = router({
     }),
   }),
   requests: router({
+    status: publicProcedure.query(() => getPauseState()),
+    checkAccessCode: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{21}$/i) })).mutation(async ({ input }) => ({ valid: await isAccessCodeAvailable(input.code.toUpperCase()) })),
     create: publicProcedure.input(requestInput).mutation(async ({ input }) => {
       if (input.termsVersion !== TERMS_VERSION) throw new TRPCError({ code: "BAD_REQUEST", message: "Debes aceptar la versión actual de los términos." });
       if (isLikelyExplicitSong(input.songTitle, input.artist) && !input.explicitWarningAccepted) throw new TRPCError({ code: "BAD_REQUEST", message: "Esta canción parece contener contenido explícito. Confirma que quieres enviarla." });
-      const { explicitWarningAccepted: _explicitWarningAccepted, ...request } = input;
+      const pause = await getPauseState();
+      const code = input.accessCode?.toUpperCase();
+      if (pause.paused) {
+        if (!code || !(await redeemAccessCode(code))) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Estamos recibiendo muchas solicitudes. Por favor, espera hasta que pase el tiempo del contador, o utiliza un código válido de un solo uso." });
+      }
+      const { explicitWarningAccepted: _explicitWarningAccepted, accessCode: _accessCode, ...request } = input;
       const result = await createSongRequest({ ...request, status: "pending" });
       return { success: true, id: result.id } as const;
     }),
