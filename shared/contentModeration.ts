@@ -1,6 +1,6 @@
 export const TERMS_VERSION = "2026-09-27-23:31";
 export const TERMS_LAST_UPDATED = "27/09/2026 · 23:31";
-export const SITE_LAST_UPDATED = "04/10/2026 · 16:07";
+export const SITE_LAST_UPDATED = "04/10/2026 · 16:12";
 
 const sensitivePatterns = [
   /\bput+a+s?\w*\b/,
