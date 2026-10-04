@@ -5,7 +5,7 @@ import { accessCodeRole, clearTeamCookie, createTeamSession, LEGACY_SINGLE_USE_C
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { ENV } from "./_core/env";
-import { countSongRequestsSince, createRequestActivity, createSiteFeedback, createSongRequest, createStudentAccessCode, getSiteControl, isAccessCodeAvailable, isStudentAccessCodeAvailable, listActiveVisitors, listRequestActivity, listSiteFeedback, listSongRequests, listStudentAccessCodes, redeemAccessCode, redeemStudentAccessCode, updateSiteControl, updateSongRequest, upsertActiveVisitor } from "./db";
+import { countSongRequestsSince, createRequestActivity, createSiteFeedback, createSongRequest, createStudentAccessCode, getAnalyticsSummary, getSiteControl, isAccessCodeAvailable, isStudentAccessCodeAvailable, listActiveVisitors, listRequestActivity, listSiteFeedback, listSongRequests, listStudentAccessCodes, recordAnalyticsEvent, redeemAccessCode, redeemStudentAccessCode, updateSiteControl, updateSongRequest, upsertActiveVisitor } from "./db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { isLikelyExplicitSong, TERMS_VERSION } from "@shared/contentModeration";
@@ -69,6 +69,10 @@ const ownerOnly = adminProcedure.use(({ ctx, next }) => {
 });
 
 const manualControl = async () => getSiteControl();
+const getAnalyticsCountry = (req: { headers: Record<string, string | string[] | undefined> }) => {
+  const candidate = String(req.headers["cf-ipcountry"] ?? req.headers["x-country-code"] ?? req.headers["x-vercel-ip-country"] ?? "XX").toUpperCase();
+  return /^[A-Z]{2}$/.test(candidate) ? candidate : "XX";
+};
 
 export const appRouter = router({
   system: systemRouter,
@@ -96,6 +100,10 @@ export const appRouter = router({
   activity: router({
     heartbeat: publicProcedure.input(z.object({ sessionId: z.string().regex(/^[a-zA-Z0-9_-]{16,64}$/) })).mutation(async ({ ctx, input }) => { await upsertActiveVisitor({ sessionId: input.sessionId, ...getActivityMetadata(ctx.req) }); return { ok: true } as const; }),
     adminLive: teamOnly.query(async () => ({ visitors: await listActiveVisitors(), requests: await listRequestActivity() })),
+  }),
+  analytics: router({
+    record: publicProcedure.input(z.object({ page: z.string().trim().regex(/^\/[a-zA-Z0-9_\-./]{0,200}$/), eventType: z.enum(["page_view", "session_end", "click"]), durationSeconds: z.number().int().min(0).max(3600).default(0), clicks: z.number().int().min(0).max(100).default(0), deviceType: z.enum(["móvil", "tablet", "ordenador", "desconocido"]).default("desconocido") })).mutation(async ({ ctx, input }) => { await recordAnalyticsEvent({ ...input, day: new Date().toISOString().slice(0, 10), country: getAnalyticsCountry(ctx.req) }); return { ok: true } as const; }),
+    summary: ownerOnly.query(() => getAnalyticsSummary()),
   }),
   music: router({
     search: publicProcedure.input(z.object({ query: z.string().trim().min(2).max(100) })).query(async ({ input }) => {

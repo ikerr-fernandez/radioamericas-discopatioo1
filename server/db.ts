@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, lt, notInArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { accessCodes, activeVisitors, InsertRequestActivity, InsertSiteFeedback, InsertSongRequest, InsertUser, requestActivity, siteControl, siteFeedback, songRequests, studentAccessCodes, users } from "../drizzle/schema";
+import { accessCodes, activeVisitors, analyticsEvents, InsertAnalyticsEvent, InsertRequestActivity, InsertSiteFeedback, InsertSongRequest, InsertUser, requestActivity, siteControl, siteFeedback, songRequests, studentAccessCodes, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -154,6 +154,19 @@ export async function updateSiteControl(input: Partial<typeof siteControl.$infer
   return getSiteControl();
 }
 
+export async function recordAnalyticsEvent(input: InsertAnalyticsEvent) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.insert(analyticsEvents).values(input);
+}
+
+export async function getAnalyticsSummary() {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.delete(analyticsEvents).where(lt(analyticsEvents.createdAt, new Date(Date.now() - 25 * 30 * 24 * 60 * 60 * 1000)));
+  return db.select({ day: analyticsEvents.day, page: analyticsEvents.page, eventType: analyticsEvents.eventType, views: sql<number>`sum(case when ${analyticsEvents.eventType} = 'page_view' then 1 else 0 end)`, sessions: sql<number>`sum(case when ${analyticsEvents.eventType} = 'session_end' then 1 else 0 end)`, totalSeconds: sql<number>`sum(${analyticsEvents.durationSeconds})`, clicks: sql<number>`sum(${analyticsEvents.clicks})`, country: analyticsEvents.country, deviceType: analyticsEvents.deviceType }).from(analyticsEvents).groupBy(analyticsEvents.day, analyticsEvents.page, analyticsEvents.eventType, analyticsEvents.country, analyticsEvents.deviceType).orderBy(desc(analyticsEvents.day)).limit(500);
+}
+
 export async function ensurePauseAccessCode() {
   const db = await getDb();
   if (!db) return;
@@ -162,6 +175,7 @@ export async function ensurePauseAccessCode() {
   await db.execute(sql`CREATE TABLE IF NOT EXISTS request_activity (requestId int NOT NULL PRIMARY KEY, ipHash varchar(128), deviceType varchar(32), browser varchar(80), accessCodeUsed boolean NOT NULL DEFAULT false)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS student_access_codes (code varchar(6) NOT NULL PRIMARY KEY, studentName varchar(120) NOT NULL, usedAt timestamp NULL, createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS site_control (id int NOT NULL PRIMARY KEY, blocked boolean NOT NULL DEFAULT false, unlockAt timestamp NULL, bannerEnabled boolean NOT NULL DEFAULT false, bannerText text NULL, bannerPosition enum('top','middle','bottom') NOT NULL DEFAULT 'top', bannerColor varchar(24) NOT NULL DEFAULT 'cyan', updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS analytics_events (id int NOT NULL AUTO_INCREMENT PRIMARY KEY, day varchar(10) NOT NULL, page varchar(255) NOT NULL, eventType enum('page_view','session_end','click') NOT NULL, durationSeconds int NOT NULL DEFAULT 0, clicks int NOT NULL DEFAULT 0, country varchar(2) NOT NULL DEFAULT 'XX', deviceType varchar(32) NOT NULL DEFAULT 'desconocido', createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
   await db.insert(siteControl).values({ id: 1 }).onDuplicateKeyUpdate({ set: { id: 1 } });
   await db.insert(accessCodes).values({ code: "NV4SXULY75CS1DABNGXD0" }).onDuplicateKeyUpdate({ set: { code: "NV4SXULY75CS1DABNGXD0" } });
 }

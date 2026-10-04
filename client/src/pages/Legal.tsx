@@ -1,0 +1,21 @@
+import type { ReactNode } from "react";
+import { Link } from "wouter";
+import { CookieSettingsLink } from "@/components/CookieConsent";
+
+const updated = "04/10/2026 · 15:55";
+
+export function CookiesPage() {
+  return <LegalLayout title="Política de cookies" eyebrow="Información transparente"><h2>Qué utilizamos</h2><p>Radio Patio Las Américas utiliza almacenamiento técnico necesario para el funcionamiento del sitio y para recordar la decisión sobre analítica. La sesión privada del equipo solo se usa al acceder al panel.</p><h2>Analítica opcional</h2><p>Si aceptas la analítica, registramos de forma agregada la página visitada, el tiempo aproximado, el dispositivo, acciones generales y el país de origen. No almacenamos la IP cruda, nombres, canciones en curso, teclas, grabaciones de sesión ni perfiles publicitarios. La analítica es propia y no se comparte con proveedores externos.</p><h2>Cómo elegir</h2><p>Puedes aceptar o rechazar la analítica desde el aviso inicial y cambiar la decisión en cualquier momento: <CookieSettingsLink />. Rechazarla no impide usar la web.</p><h2>Conservación</h2><p>La preferencia local se mantiene hasta que la borres o la cambies. Los eventos estadísticos se eliminan como máximo a los 25 meses y se revisará periódicamente que el plazo siga siendo necesario.</p><p className="mt-6 text-xs text-slate-500">Esta política debe ser revisada y completada por el responsable jurídico del centro antes de considerarse una garantía legal definitiva.</p></LegalLayout>;
+}
+
+export function PrivacyPage() {
+  return <LegalLayout title="Política de privacidad" eyebrow="Protección de datos"><h2>Responsable</h2><p>Responsable operativo: Radio América · Comisión de Redes Sociales del IES Las Américas. Contacto: <a className="text-cyan-200 underline" href="mailto:iker.radioamericas@gmail.com">iker.radioamericas@gmail.com</a>.</p><p className="text-xs text-amber-200">El centro debe completar aquí la identidad jurídica, domicilio, contacto oficial y, si procede, datos del delegado de protección de datos.</p><h2>Finalidades</h2><p>Gestionar peticiones musicales, moderarlas para el entorno escolar, responder consultas y, solo si se acepta, elaborar estadísticas agregadas de uso para mejorar la web.</p><h2>Datos tratados</h2><p>En una petición: nombre, curso, canción, dedicatoria y datos técnicos mínimos de seguridad. En analítica consentida: página, duración aproximada, dispositivo y país agregado. No se usa geolocalización GPS.</p><h2>Derechos y conservación</h2><p>Puedes solicitar acceso, rectificación o supresión escribiendo al contacto indicado. Las peticiones se conservan durante el tiempo necesario para gestionar el programa; las estadísticas se conservan como máximo 25 meses.</p></LegalLayout>;
+}
+
+export function LegalNoticePage() {
+  return <LegalLayout title="Aviso legal" eyebrow="Información del sitio"><h2>Titularidad</h2><p>Radio Patio Las Américas es un buzón escolar gestionado por Radio América · Comisión de Redes Sociales del IES Las Américas.</p><p className="text-xs text-amber-200">Antes de publicar esta página como aviso legal definitivo, el centro debe completar titular jurídico, NIF, domicilio, correo oficial y demás datos exigibles.</p><h2>Uso del sitio</h2><p>El envío de una canción no garantiza su emisión. El equipo revisa las propuestas y puede descartar contenidos no adecuados para el entorno escolar.</p><h2>Contacto</h2><p><a className="text-cyan-200 underline" href="mailto:iker.radioamericas@gmail.com">iker.radioamericas@gmail.com</a></p></LegalLayout>;
+}
+
+function LegalLayout({ title, eyebrow, children }: { title: string; eyebrow: string; children: ReactNode }) {
+  return <main className="min-h-screen bg-[#07111f] px-4 py-10 text-slate-100 sm:px-6"><div className="mx-auto max-w-3xl"><Link href="/" className="text-sm text-cyan-200 hover:text-white">← Volver a Radio Patio Las Américas</Link><p className="mt-12 font-mono text-[10px] uppercase tracking-[0.28em] text-cyan-300">{eyebrow}</p><h1 className="mt-3 text-4xl font-bold text-white">{title}</h1><div className="mt-8 space-y-5 text-sm leading-7 text-slate-300">{children}</div><p className="mt-10 text-xs text-slate-500">Última actualización: {updated}</p></div></main>;
+}

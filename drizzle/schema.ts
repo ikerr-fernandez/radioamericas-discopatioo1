@@ -76,6 +76,18 @@ export const siteControl = mysqlTable("site_control", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const analyticsEvents = mysqlTable("analytics_events", {
+  id: int("id").autoincrement().primaryKey(),
+  day: varchar("day", { length: 10 }).notNull(),
+  page: varchar("page", { length: 255 }).notNull(),
+  eventType: mysqlEnum("eventType", ["page_view", "session_end", "click"]).notNull(),
+  durationSeconds: int("durationSeconds").notNull().default(0),
+  clicks: int("clicks").notNull().default(0),
+  country: varchar("country", { length: 2 }).notNull().default("XX"),
+  deviceType: varchar("deviceType", { length: 32 }).notNull().default("desconocido"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type SongRequest = typeof songRequests.$inferSelect;
@@ -92,3 +104,5 @@ export type StudentAccessCode = typeof studentAccessCodes.$inferSelect;
 export type InsertStudentAccessCode = typeof studentAccessCodes.$inferInsert;
 export type SiteControl = typeof siteControl.$inferSelect;
 export type InsertSiteControl = typeof siteControl.$inferInsert;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;
