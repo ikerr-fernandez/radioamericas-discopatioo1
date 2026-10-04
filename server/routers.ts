@@ -40,11 +40,13 @@ function nextUnlockAt(now = Date.now()) {
 
 async function getPauseState() {
   const now = Date.now();
+  const control = await getSiteControl();
+  const count = now < FIRST_OPEN_AT ? 0 : await countSongRequestsSince(new Date(now < FIRST_OPEN_AT ? FIRST_OPEN_AT : FIRST_OPEN_AT + Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) * WEEK_MS));
+  if (control.openOverride && !control.blocked) return { paused: false, count, limit: REQUEST_LIMIT, unlockAt: null };
   if (now >= TEMPORARY_OPEN_FROM && now < TEMPORARY_OPEN_UNTIL) {
     return { paused: false, count: 0, limit: REQUEST_LIMIT, unlockAt: null };
   }
   const windowStart = now < FIRST_OPEN_AT ? FIRST_OPEN_AT : FIRST_OPEN_AT + Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) * WEEK_MS;
-  const count = now < FIRST_OPEN_AT ? 0 : await countSongRequestsSince(new Date(windowStart));
   const paused = now < FIRST_OPEN_AT || count >= REQUEST_LIMIT;
   return { paused, count, limit: REQUEST_LIMIT, unlockAt: paused ? nextUnlockAt(now) : null };
 }
@@ -169,7 +171,7 @@ export const appRouter = router({
   }),
   owner: router({
     control: ownerOnly.query(() => getSiteControl()),
-    updateControl: ownerOnly.input(z.object({ blocked: z.boolean().optional(), unlockAt: z.coerce.date().nullable().optional(), bannerEnabled: z.boolean().optional(), bannerText: z.string().max(500).nullable().optional(), bannerPosition: z.enum(["top", "middle", "bottom"]).optional(), bannerColor: z.string().max(24).optional() })).mutation(({ input }) => updateSiteControl(input)),
+    updateControl: ownerOnly.input(z.object({ blocked: z.boolean().optional(), openOverride: z.boolean().optional(), unlockAt: z.coerce.date().nullable().optional(), bannerEnabled: z.boolean().optional(), bannerText: z.string().max(500).nullable().optional(), bannerPosition: z.enum(["top", "middle", "bottom"]).optional(), bannerColor: z.string().max(24).optional() })).mutation(({ input }) => updateSiteControl(input)),
     codes: ownerOnly.query(() => listStudentAccessCodes()),
     createCode: ownerOnly.input(z.object({ studentName: z.string().trim().min(1).max(120) })).mutation(async ({ input }) => {
       const code = String(Math.floor(100000 + Math.random() * 900000));

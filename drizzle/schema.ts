@@ -68,6 +68,7 @@ export const studentAccessCodes = mysqlTable("student_access_codes", {
 export const siteControl = mysqlTable("site_control", {
   id: int("id").primaryKey(),
   blocked: boolean("blocked").notNull().default(false),
+  openOverride: boolean("openOverride").notNull().default(false),
   unlockAt: timestamp("unlockAt"),
   bannerEnabled: boolean("bannerEnabled").notNull().default(false),
   bannerText: text("bannerText"),

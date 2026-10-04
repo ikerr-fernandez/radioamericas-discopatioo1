@@ -144,7 +144,7 @@ export async function getSiteControl() {
   const db = await getDb();
   if (!db) throw new Error("Database unavailable");
   const rows = await db.select().from(siteControl).where(eq(siteControl.id, 1)).limit(1);
-  return rows[0] ?? { id: 1, blocked: false, unlockAt: null, bannerEnabled: false, bannerText: null, bannerPosition: "top" as const, bannerColor: "cyan", updatedAt: new Date() };
+  return rows[0] ?? { id: 1, blocked: false, openOverride: false, unlockAt: null, bannerEnabled: false, bannerText: null, bannerPosition: "top" as const, bannerColor: "cyan", updatedAt: new Date() };
 }
 
 export async function updateSiteControl(input: Partial<typeof siteControl.$inferInsert>) {
@@ -174,7 +174,8 @@ export async function ensurePauseAccessCode() {
   await db.execute(sql`CREATE TABLE IF NOT EXISTS active_visitors (sessionId varchar(64) NOT NULL PRIMARY KEY, ipHash varchar(128), deviceType varchar(32), browser varchar(80), lastSeen timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS request_activity (requestId int NOT NULL PRIMARY KEY, ipHash varchar(128), deviceType varchar(32), browser varchar(80), accessCodeUsed boolean NOT NULL DEFAULT false)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS student_access_codes (code varchar(6) NOT NULL PRIMARY KEY, studentName varchar(120) NOT NULL, usedAt timestamp NULL, createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
-  await db.execute(sql`CREATE TABLE IF NOT EXISTS site_control (id int NOT NULL PRIMARY KEY, blocked boolean NOT NULL DEFAULT false, unlockAt timestamp NULL, bannerEnabled boolean NOT NULL DEFAULT false, bannerText text NULL, bannerPosition enum('top','middle','bottom') NOT NULL DEFAULT 'top', bannerColor varchar(24) NOT NULL DEFAULT 'cyan', updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS site_control (id int NOT NULL PRIMARY KEY, blocked boolean NOT NULL DEFAULT false, openOverride boolean NOT NULL DEFAULT false, unlockAt timestamp NULL, bannerEnabled boolean NOT NULL DEFAULT false, bannerText text NULL, bannerPosition enum('top','middle','bottom') NOT NULL DEFAULT 'top', bannerColor varchar(24) NOT NULL DEFAULT 'cyan', updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
+  try { await db.execute(sql`ALTER TABLE site_control ADD COLUMN openOverride boolean NOT NULL DEFAULT false AFTER blocked`); } catch { /* Column already exists on upgraded databases. */ }
   await db.execute(sql`CREATE TABLE IF NOT EXISTS analytics_events (id int NOT NULL AUTO_INCREMENT PRIMARY KEY, day varchar(10) NOT NULL, page varchar(255) NOT NULL, eventType enum('page_view','session_end','click') NOT NULL, durationSeconds int NOT NULL DEFAULT 0, clicks int NOT NULL DEFAULT 0, country varchar(2) NOT NULL DEFAULT 'XX', deviceType varchar(32) NOT NULL DEFAULT 'desconocido', createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
   await db.insert(siteControl).values({ id: 1 }).onDuplicateKeyUpdate({ set: { id: 1 } });
   await db.insert(accessCodes).values({ code: "NV4SXULY75CS1DABNGXD0" }).onDuplicateKeyUpdate({ set: { code: "NV4SXULY75CS1DABNGXD0" } });
