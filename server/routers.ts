@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { clearTeamCookie, createTeamSession, isValidTeamCode, setTeamCookie } from "./_core/teamAuth";
+import { accessCodeRole, clearTeamCookie, createTeamSession, LEGACY_SINGLE_USE_CODE, OWNER_ACCESS_CODE, setTeamCookie, TEAM_ACCESS_CODES } from "./_core/teamAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { ENV } from "./_core/env";
-import { countSongRequestsSince, createRequestActivity, createSiteFeedback, createSongRequest, isAccessCodeAvailable, listActiveVisitors, listRequestActivity, listSiteFeedback, listSongRequests, redeemAccessCode, updateSongRequest, upsertActiveVisitor } from "./db";
+import { countSongRequestsSince, createRequestActivity, createSiteFeedback, createSongRequest, createStudentAccessCode, getSiteControl, isAccessCodeAvailable, isStudentAccessCodeAvailable, listActiveVisitors, listRequestActivity, listSiteFeedback, listSongRequests, listStudentAccessCodes, redeemAccessCode, redeemStudentAccessCode, updateSiteControl, updateSongRequest, upsertActiveVisitor } from "./db";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { isLikelyExplicitSong, TERMS_VERSION } from "@shared/contentModeration";
@@ -22,7 +22,7 @@ const requestInput = z.object({
   termsAccepted: z.literal(true, { error: "Debes aceptar los términos para enviar la petición" }),
   termsVersion: z.literal(TERMS_VERSION),
   explicitWarningAccepted: z.boolean().default(false),
-  accessCode: z.string().trim().regex(/^[A-Z0-9]{21}$/i, "El código debe tener 21 caracteres").optional(),
+  accessCode: z.string().trim().regex(/^[A-Z0-9]{6,21}$/i, "El código no tiene un formato válido").optional(),
 });
 
 const FIRST_OPEN_AT = Date.parse("2026-10-07T12:00:00Z");
@@ -63,6 +63,12 @@ const teamOnly = adminProcedure.use(({ ctx, next }) => {
   if (ctx.user.loginMethod !== "team-code" || ctx.user.openId !== "disco-patio-team") throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas el código privado de acceso." });
   return next({ ctx });
 });
+const ownerOnly = adminProcedure.use(({ ctx, next }) => {
+  if (ctx.user.loginMethod !== "team-owner" || ctx.user.openId !== "disco-patio-team") throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas el código de propietario." });
+  return next({ ctx });
+});
+
+const manualControl = async () => getSiteControl();
 
 export const appRouter = router({
   system: systemRouter,
@@ -76,9 +82,10 @@ export const appRouter = router({
     }),
   }),
   team: router({
-    login: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{21}$/i, "El código debe tener 21 caracteres") })).mutation(async ({ ctx, input }) => {
-      if (!isValidTeamCode(input.code)) throw new TRPCError({ code: "UNAUTHORIZED", message: "Código incorrecto" });
-      setTeamCookie(ctx.res, ctx.req, await createTeamSession());
+    login: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{16,21}$/i, "Código incorrecto") })).mutation(async ({ ctx, input }) => {
+      const role = accessCodeRole(input.code);
+      if (!role) throw new TRPCError({ code: "UNAUTHORIZED", message: "Código incorrecto" });
+      setTeamCookie(ctx.res, ctx.req, await createTeamSession(role));
       return { success: true } as const;
     }),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -119,15 +126,23 @@ export const appRouter = router({
     }),
   }),
   requests: router({
-    status: publicProcedure.query(() => getPauseState()),
-    checkAccessCode: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{21}$/i) })).mutation(async ({ input }) => ({ valid: await isAccessCodeAvailable(input.code.toUpperCase()) })),
+    status: publicProcedure.query(async () => ({ ...(await getPauseState()), ...(await manualControl()) })),
+    checkAccessCode: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{6,21}$/i) })).mutation(async ({ input }) => {
+      const code = input.code.toUpperCase();
+      const permanent = accessCodeRole(code) !== null || TEAM_ACCESS_CODES.includes(code as typeof TEAM_ACCESS_CODES[number]) || code === OWNER_ACCESS_CODE;
+      return { valid: permanent || code === LEGACY_SINGLE_USE_CODE ? (permanent || await isAccessCodeAvailable(code)) : await isStudentAccessCodeAvailable(code), permanent };
+    }),
     create: publicProcedure.input(requestInput).mutation(async ({ ctx, input }) => {
       if (input.termsVersion !== TERMS_VERSION) throw new TRPCError({ code: "BAD_REQUEST", message: "Debes aceptar la versión actual de los términos." });
       if (isLikelyExplicitSong(input.songTitle, input.artist) && !input.explicitWarningAccepted) throw new TRPCError({ code: "BAD_REQUEST", message: "Esta canción parece contener contenido explícito. Confirma que quieres enviarla." });
+      const control = await manualControl();
       const pause = await getPauseState();
       const code = input.accessCode?.toUpperCase();
-      if (pause.paused) {
-        if (!code || !(await redeemAccessCode(code))) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Estamos recibiendo muchas solicitudes. Por favor, espera hasta que pase el tiempo del contador, o utiliza un código válido de un solo uso." });
+      const permanentBypass = code ? accessCodeRole(code) !== null : false;
+      if ((pause.paused || control.blocked) && !permanentBypass) {
+        if (!code) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "La página está bloqueada. Utiliza un código válido de un solo uso." });
+        const redeemed = code.length === 6 ? await redeemStudentAccessCode(code) : await redeemAccessCode(code);
+        if (!redeemed) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Código no válido o ya utilizado." });
       }
       const { explicitWarningAccepted: _explicitWarningAccepted, accessCode: _accessCode, ...request } = input;
       const result = await createSongRequest({ ...request, status: "pending" });
@@ -136,6 +151,23 @@ export const appRouter = router({
     }),
     adminList: teamOnly.query(() => listSongRequests()),
     update: teamOnly.input(z.object({ id: z.number().int(), status: z.enum(["pending", "selected", "played", "rejected"]), notes: z.string().max(1000).optional() })).mutation(({ input }) => updateSongRequest(input.id, { status: input.status, notes: input.notes })),
+    deletePermanent: ownerOnly.input(z.object({ id: z.number().int().positive(), confirmation: z.literal("ELIMINAR") })).mutation(async ({ input }) => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      await db.delete((await import("../drizzle/schema")).songRequests).where((await import("drizzle-orm")).eq((await import("../drizzle/schema")).songRequests.id, input.id));
+      return { success: true } as const;
+    }),
+  }),
+  owner: router({
+    control: ownerOnly.query(() => getSiteControl()),
+    updateControl: ownerOnly.input(z.object({ blocked: z.boolean().optional(), unlockAt: z.coerce.date().nullable().optional(), bannerEnabled: z.boolean().optional(), bannerText: z.string().max(500).nullable().optional(), bannerPosition: z.enum(["top", "middle", "bottom"]).optional(), bannerColor: z.string().max(24).optional() })).mutation(({ input }) => updateSiteControl(input)),
+    codes: ownerOnly.query(() => listStudentAccessCodes()),
+    createCode: ownerOnly.input(z.object({ studentName: z.string().trim().min(1).max(120) })).mutation(async ({ input }) => {
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      await createStudentAccessCode({ code, studentName: input.studentName });
+      return { code, studentName: input.studentName };
+    }),
   }),
   feedback: router({
     submit: publicProcedure.input(z.object({ requestId: z.number().int().positive(), rating: z.number().int().min(1).max(5) })).mutation(({ input }) => createSiteFeedback(input)),

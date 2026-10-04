@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, lt, notInArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { accessCodes, activeVisitors, InsertRequestActivity, InsertSiteFeedback, InsertSongRequest, InsertUser, requestActivity, siteFeedback, songRequests, users } from "../drizzle/schema";
+import { accessCodes, activeVisitors, InsertRequestActivity, InsertSiteFeedback, InsertSongRequest, InsertUser, requestActivity, siteControl, siteFeedback, songRequests, studentAccessCodes, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -113,12 +113,56 @@ export async function redeemAccessCode(code: string) {
   return Number(result[0]?.affectedRows ?? 0) > 0;
 }
 
+export async function isStudentAccessCodeAvailable(code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const rows = await db.select({ code: studentAccessCodes.code }).from(studentAccessCodes).where(and(eq(studentAccessCodes.code, code), isNull(studentAccessCodes.usedAt))).limit(1);
+  return rows.length > 0;
+}
+
+export async function redeemStudentAccessCode(code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const result = await db.update(studentAccessCodes).set({ usedAt: new Date() }).where(and(eq(studentAccessCodes.code, code), isNull(studentAccessCodes.usedAt)));
+  return Number(result[0]?.affectedRows ?? 0) > 0;
+}
+
+export async function createStudentAccessCode(input: { code: string; studentName: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.insert(studentAccessCodes).values(input);
+  return input;
+}
+
+export async function listStudentAccessCodes() {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  return db.select().from(studentAccessCodes).orderBy(desc(studentAccessCodes.createdAt)).limit(100);
+}
+
+export async function getSiteControl() {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const rows = await db.select().from(siteControl).where(eq(siteControl.id, 1)).limit(1);
+  return rows[0] ?? { id: 1, blocked: false, unlockAt: null, bannerEnabled: false, bannerText: null, bannerPosition: "top" as const, bannerColor: "cyan", updatedAt: new Date() };
+}
+
+export async function updateSiteControl(input: Partial<typeof siteControl.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.insert(siteControl).values({ id: 1, ...input }).onDuplicateKeyUpdate({ set: { ...input, updatedAt: new Date() } });
+  return getSiteControl();
+}
+
 export async function ensurePauseAccessCode() {
   const db = await getDb();
   if (!db) return;
   await db.execute(sql`CREATE TABLE IF NOT EXISTS access_codes (code varchar(32) NOT NULL PRIMARY KEY, usedAt timestamp NULL)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS active_visitors (sessionId varchar(64) NOT NULL PRIMARY KEY, ipHash varchar(128), deviceType varchar(32), browser varchar(80), lastSeen timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
   await db.execute(sql`CREATE TABLE IF NOT EXISTS request_activity (requestId int NOT NULL PRIMARY KEY, ipHash varchar(128), deviceType varchar(32), browser varchar(80), accessCodeUsed boolean NOT NULL DEFAULT false)`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS student_access_codes (code varchar(6) NOT NULL PRIMARY KEY, studentName varchar(120) NOT NULL, usedAt timestamp NULL, createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+  await db.execute(sql`CREATE TABLE IF NOT EXISTS site_control (id int NOT NULL PRIMARY KEY, blocked boolean NOT NULL DEFAULT false, unlockAt timestamp NULL, bannerEnabled boolean NOT NULL DEFAULT false, bannerText text NULL, bannerPosition enum('top','middle','bottom') NOT NULL DEFAULT 'top', bannerColor varchar(24) NOT NULL DEFAULT 'cyan', updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)`);
+  await db.insert(siteControl).values({ id: 1 }).onDuplicateKeyUpdate({ set: { id: 1 } });
   await db.insert(accessCodes).values({ code: "NV4SXULY75CS1DABNGXD0" }).onDuplicateKeyUpdate({ set: { code: "NV4SXULY75CS1DABNGXD0" } });
 }
 

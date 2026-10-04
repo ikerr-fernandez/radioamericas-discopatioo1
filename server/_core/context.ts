@@ -17,14 +17,15 @@ export async function createContext(
   let user: User | null = null;
 
   const cookies = parseCookieHeader(opts.req.headers.cookie ?? "");
-  if (await verifyTeamSession(cookies[TEAM_COOKIE_NAME])) {
+  const teamRole = await verifyTeamSession(cookies[TEAM_COOKIE_NAME]);
+  if (teamRole) {
     const now = new Date();
     user = {
       id: 0,
       openId: "disco-patio-team",
-      name: "Equipo Disco Patio",
+      name: teamRole === "owner" ? "Propietario Radio Patio" : "Equipo Disco Patio",
       email: null,
-      loginMethod: "team-code",
+      loginMethod: teamRole === "owner" ? "team-owner" : "team-code",
       role: "admin",
       createdAt: now,
       updatedAt: now,

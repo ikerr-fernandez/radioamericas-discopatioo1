@@ -58,6 +58,24 @@ export const accessCodes = mysqlTable("access_codes", {
   usedAt: timestamp("usedAt"),
 });
 
+export const studentAccessCodes = mysqlTable("student_access_codes", {
+  code: varchar("code", { length: 6 }).primaryKey(),
+  studentName: varchar("studentName", { length: 120 }).notNull(),
+  usedAt: timestamp("usedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const siteControl = mysqlTable("site_control", {
+  id: int("id").primaryKey(),
+  blocked: boolean("blocked").notNull().default(false),
+  unlockAt: timestamp("unlockAt"),
+  bannerEnabled: boolean("bannerEnabled").notNull().default(false),
+  bannerText: text("bannerText"),
+  bannerPosition: mysqlEnum("bannerPosition", ["top", "middle", "bottom"]).notNull().default("top"),
+  bannerColor: varchar("bannerColor", { length: 24 }).notNull().default("cyan"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type SongRequest = typeof songRequests.$inferSelect;
@@ -70,3 +88,7 @@ export type SiteFeedback = typeof siteFeedback.$inferSelect;
 export type InsertSiteFeedback = typeof siteFeedback.$inferInsert;
 export type AccessCode = typeof accessCodes.$inferSelect;
 export type InsertAccessCode = typeof accessCodes.$inferInsert;
+export type StudentAccessCode = typeof studentAccessCodes.$inferSelect;
+export type InsertStudentAccessCode = typeof studentAccessCodes.$inferInsert;
+export type SiteControl = typeof siteControl.$inferSelect;
+export type InsertSiteControl = typeof siteControl.$inferInsert;
