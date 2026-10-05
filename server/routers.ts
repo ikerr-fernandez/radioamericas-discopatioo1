@@ -130,7 +130,11 @@ export const appRouter = router({
     }),
   }),
   requests: router({
-    status: publicProcedure.query(async () => ({ ...(await getPauseState()), ...(await manualControl()) })),
+    status: publicProcedure.query(async () => {
+      const pause = await getPauseState();
+      const control = await manualControl();
+      return { ...pause, ...control, unlockAt: control.unlockAt ?? pause.unlockAt };
+    }),
     checkAccessCode: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{6,21}$/i) })).mutation(async ({ input }) => {
       const code = input.code.toUpperCase();
       const permanent = accessCodeRole(code) !== null || TEAM_ACCESS_CODES.includes(code as typeof TEAM_ACCESS_CODES[number]) || code === OWNER_ACCESS_CODE;
