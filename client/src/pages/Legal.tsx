@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "wouter";
 import { CookieSettingsLink } from "@/components/CookieConsent";
 
-const updated = "04/10/2026 · 15:55";
+const updated = "05/10/2026 · 20:10";
 
 export function CookiesPage() {
   return <LegalLayout title="Política de cookies" eyebrow="Información transparente"><h2>Qué utilizamos</h2><p>Radio Patio Las Américas utiliza almacenamiento técnico necesario para el funcionamiento del sitio y para recordar la decisión sobre analítica. La sesión privada del equipo solo se usa al acceder al panel.</p><h2>Analítica opcional</h2><p>Si aceptas la analítica, registramos de forma agregada la página visitada, el tiempo aproximado, el dispositivo, acciones generales y el país de origen. No almacenamos la IP cruda, nombres, canciones en curso, teclas, grabaciones de sesión ni perfiles publicitarios. La analítica es propia y no se comparte con proveedores externos.</p><h2>Cómo elegir</h2><p>Puedes aceptar o rechazar la analítica desde el aviso inicial y cambiar la decisión en cualquier momento: <CookieSettingsLink />. Rechazarla no impide usar la web.</p><h2>Conservación</h2><p>La preferencia local se mantiene hasta que la borres o la cambies. Los eventos estadísticos se eliminan como máximo a los 25 meses y se revisará periódicamente que el plazo siga siendo necesario.</p><p className="mt-6 text-xs text-slate-500">Esta política debe ser revisada y completada por el responsable jurídico del centro antes de considerarse una garantía legal definitiva.</p></LegalLayout>;

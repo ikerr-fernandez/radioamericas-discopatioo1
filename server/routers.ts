@@ -25,11 +25,8 @@ const requestInput = z.object({
   accessCode: z.string().trim().regex(/^[A-Z0-9]{6,21}$/i, "El código no tiene un formato válido").optional(),
 });
 
-const FIRST_OPEN_AT = Date.parse("2026-10-07T12:00:00Z");
-// Apertura excepcional solicitada para el sábado 3 de octubre de 2026.
-// 12:21 CEST = 10:21 UTC; 18:00 CEST = 16:00 UTC.
-const TEMPORARY_OPEN_FROM = Date.parse("2026-10-03T10:21:00Z");
-const TEMPORARY_OPEN_UNTIL = Date.parse("2026-10-03T16:00:00Z");
+const FIRST_OPEN_AT = Date.parse("2026-10-08T12:00:00Z");
+// 14:00 CEST = 12:00 UTC. El jueves 8 de octubre de 2026 se abre automáticamente.
 const REQUEST_LIMIT = 30;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -43,9 +40,6 @@ async function getPauseState() {
   const control = await getSiteControl();
   const count = now < FIRST_OPEN_AT ? 0 : await countSongRequestsSince(new Date(now < FIRST_OPEN_AT ? FIRST_OPEN_AT : FIRST_OPEN_AT + Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) * WEEK_MS));
   if (control.openOverride && !control.blocked) return { paused: false, count, limit: REQUEST_LIMIT, unlockAt: null };
-  if (now >= TEMPORARY_OPEN_FROM && now < TEMPORARY_OPEN_UNTIL) {
-    return { paused: false, count: 0, limit: REQUEST_LIMIT, unlockAt: null };
-  }
   const windowStart = now < FIRST_OPEN_AT ? FIRST_OPEN_AT : FIRST_OPEN_AT + Math.floor((now - FIRST_OPEN_AT) / WEEK_MS) * WEEK_MS;
   const paused = now < FIRST_OPEN_AT || count >= REQUEST_LIMIT;
   return { paused, count, limit: REQUEST_LIMIT, unlockAt: paused ? nextUnlockAt(now) : null };
