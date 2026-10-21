@@ -46,8 +46,8 @@ function PauseGate({ unlockAt, onUnlock, loading = false }: { unlockAt: number; 
     <div className="w-full max-w-lg rounded-[2rem] border border-cyan-300/20 bg-white/[0.045] p-6 text-center shadow-2xl shadow-black/20 sm:p-9">
       <div className="radio-dynamic-glow mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10"><Clock3 className="h-8 w-8 text-cyan-300" /></div>
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.28em] text-cyan-300">Radio Patio Las Américas</p>
-      <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Estamos recibiendo muchas solicitudes</h1>
-      <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-300">Por favor, espera hasta que pase el tiempo del contador. Hasta el jueves a las 14:00 no se pueden enviar canciones.</p>
+      <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Mañana Discopatio</h1>
+      <p className="mx-auto mt-4 max-w-md text-sm leading-6 text-slate-300">Puedes enviar tus canciones para la semana que viene a partir del jueves 22 de octubre a las 14:00 CEST.</p>
       <div className="mt-7 grid grid-cols-4 gap-2" aria-live="polite" aria-label="Tiempo restante hasta poder enviar canciones">
         {[[days, "días"], [hours, "horas"], [minutes, "minutos"], [seconds, "segundos"]].map(([value, label]) => <div key={label} className="rounded-2xl border border-white/10 bg-[#07111f]/80 px-2 py-3"><p className="font-mono text-xl font-bold text-cyan-200 sm:text-2xl">{label === "días" ? value : String(value).padStart(2, "0")}</p><p className="mt-1 text-[9px] uppercase tracking-wider text-slate-500">{label}</p></div>)}
       </div>
