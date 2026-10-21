@@ -25,7 +25,7 @@ const requestInput = z.object({
   accessCode: z.string().trim().regex(/^[A-Z0-9]{6,21}$/i, "El código no tiene un formato válido").optional(),
 });
 
-const FIRST_OPEN_AT = Date.parse("2026-10-23T13:00:00Z");
+const FIRST_OPEN_AT = Date.parse("2026-10-22T12:00:00Z");
 // 14:00 CEST = 12:00 UTC. El jueves 8 de octubre de 2026 se abre automáticamente.
 const REQUEST_LIMIT = 30;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
