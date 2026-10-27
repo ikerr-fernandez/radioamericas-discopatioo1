@@ -181,6 +181,15 @@
   button, [role="button"] { min-height: 44px; }
   input, textarea, select { min-height: 46px; font-size: 16px !important; }
   audio { max-width: 100%; }
+  .welcome-hero { padding-top: 2rem; padding-bottom: 2.75rem; }
+  .welcome-hero .welcome-art { order: -1; margin-bottom: 0.75rem; }
+  .welcome-hero .welcome-art img { max-width: 220px; }
+  .welcome-title { font-size: clamp(2.45rem, 13vw, 3.5rem); letter-spacing: -0.055em; }
+  .welcome-copy { font-size: 0.95rem; line-height: 1.7; }
+  .welcome-chips { display: grid; grid-template-columns: 1fr; }
+  .welcome-chips span { justify-content: center; }
+  section[id="request-form"] { padding-top: 2.75rem; padding-bottom: 3rem; }
+  form.rounded-\[2rem\] { border-radius: 1.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

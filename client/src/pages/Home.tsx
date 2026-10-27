@@ -67,6 +67,7 @@ function PublicAccessGate({ onUnlock, loading = false }: { onUnlock: (code: stri
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.28em] text-cyan-300">Radio Patio Las Américas</p>
       <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Acceso público</h1>
       <p className="mt-3 text-sm leading-6 text-slate-400">Introduce el código público para entrar en la web y enviar tu canción.</p>
+      <p className="mt-3 text-xs leading-5 text-slate-500">Si tienes algún error o no te funciona bien, escríbenos por Instagram: <a href="https://www.instagram.com/radioamericas_parla" target="_blank" rel="noreferrer" className="text-cyan-200 underline underline-offset-2 hover:text-white">@radioamericas_parla</a></p>
       <form onSubmit={event => { event.preventDefault(); if (code.trim()) onUnlock(code.trim()); }} className="mt-7 space-y-3">
         <Input autoFocus required maxLength={32} value={code} onChange={event => setCode(event.target.value)} placeholder="Código público" type="password" className="h-12 border-white/10 bg-[#07111f] text-center font-mono text-base tracking-[0.16em] text-white placeholder:text-slate-600 placeholder:tracking-normal" />
         <Button disabled={loading || !code.trim()} type="submit" className="h-12 w-full bg-cyan-300 font-semibold text-[#07111f] hover:bg-cyan-200">{loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}Entrar</Button>
