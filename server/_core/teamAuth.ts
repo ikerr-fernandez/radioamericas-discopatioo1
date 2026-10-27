@@ -8,6 +8,8 @@ export const TEAM_ACCESS_CODES = ["4719RADIEROS2026", "VZXT5D4YGB0XR90P1F62F"] a
 export const TEAM_ACCESS_CODE = "VZXT5D4YGB0XR90P1F62F";
 export const OWNER_ACCESS_CODE = "ADMINadminIKEAS1";
 export const LEGACY_SINGLE_USE_CODE = "NV4SXULY75CS1DABNGXD0";
+export const PUBLIC_ACCESS_COOKIE_NAME = "disco_patio_public_access";
+export const PUBLIC_ACCESS_CODE = "JUEVES";
 const secretKey = () => new TextEncoder().encode(ENV.cookieSecret || "disco-patio-local-secret");
 const safeEqual = (value: string, expectedValue: string) => {
   const received = Buffer.from(value.trim().toUpperCase());
@@ -55,4 +57,29 @@ export function setTeamCookie(res: Response, req: Request, token: string) {
 
 export function clearTeamCookie(res: Response, req: Request) {
   res.clearCookie(TEAM_COOKIE_NAME, { ...teamCookieOptions(req), maxAge: -1 });
+}
+
+export async function createPublicAccessSession() {
+  return new SignJWT({ kind: "disco-patio-public-access" })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setIssuedAt()
+    .sign(secretKey());
+}
+
+export async function verifyPublicAccessSession(token: string | undefined) {
+  if (!token) return false;
+  try {
+    const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
+    return payload.kind === "disco-patio-public-access";
+  } catch {
+    return false;
+  }
+}
+
+export function setPublicAccessCookie(res: Response, req: Request, token: string) {
+  res.cookie(PUBLIC_ACCESS_COOKIE_NAME, token, { ...teamCookieOptions(req), maxAge: 31536000000 });
+}
+
+export function clearPublicAccessCookie(res: Response, req: Request) {
+  res.clearCookie(PUBLIC_ACCESS_COOKIE_NAME, { ...teamCookieOptions(req), maxAge: -1 });
 }

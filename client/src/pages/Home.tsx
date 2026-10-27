@@ -59,6 +59,23 @@ function PauseGate({ unlockAt, onUnlock, loading = false }: { unlockAt: number; 
   </div>;
 }
 
+function PublicAccessGate({ onUnlock, loading = false }: { onUnlock: (code: string) => void; loading?: boolean }) {
+  const [code, setCode] = useState("");
+  return <div className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 py-8 text-slate-100">
+    <div className="w-full max-w-md rounded-[2rem] border border-cyan-300/20 bg-white/[0.045] p-6 text-center shadow-2xl shadow-black/20 sm:p-9">
+      <div className="radio-dynamic-glow mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10"><KeyRound className="h-8 w-8 text-cyan-300" /></div>
+      <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.28em] text-cyan-300">Radio Patio Las Américas</p>
+      <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Acceso público</h1>
+      <p className="mt-3 text-sm leading-6 text-slate-400">Introduce el código público para entrar en la web y enviar tu canción.</p>
+      <form onSubmit={event => { event.preventDefault(); if (code.trim()) onUnlock(code.trim()); }} className="mt-7 space-y-3">
+        <Input autoFocus required maxLength={32} value={code} onChange={event => setCode(event.target.value)} placeholder="Código público" type="password" className="h-12 border-white/10 bg-[#07111f] text-center font-mono text-base tracking-[0.16em] text-white placeholder:text-slate-600 placeholder:tracking-normal" />
+        <Button disabled={loading || !code.trim()} type="submit" className="h-12 w-full bg-cyan-300 font-semibold text-[#07111f] hover:bg-cyan-200">{loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}Entrar</Button>
+      </form>
+      <nav className="mt-7 flex justify-center gap-4 border-t border-white/10 pt-5 text-xs text-slate-400"><Link href="/aviso-legal" className="underline underline-offset-2 hover:text-white">Aviso legal</Link><Link href="/privacidad" className="underline underline-offset-2 hover:text-white">Privacidad</Link><Link href="/cookies" className="underline underline-offset-2 hover:text-white">Cookies</Link></nav>
+    </div>
+  </div>;
+}
+
 export default function Home() {
   const { user } = useAuth();
   const [searchText, setSearchText] = useState("");
@@ -87,6 +104,11 @@ export default function Home() {
   }, [searchText]);
 
   const pause = trpc.requests.status.useQuery(undefined, { refetchInterval: 15_000 });
+  const publicAccess = trpc.publicAccess.status.useQuery();
+  const publicLogin = trpc.publicAccess.login.useMutation({
+    onSuccess: async () => { await publicAccess.refetch(); toast.success("Código aceptado"); },
+    onError: error => toast.error("Código no válido", { description: error.message }),
+  });
   const heartbeat = trpc.activity.heartbeat.useMutation();
   useEffect(() => {
     const storageKey = "radio-patio-activity-session";
@@ -145,6 +167,8 @@ export default function Home() {
   };
 
   if (pause.isLoading) return <FullScreenLoader label="Sincronizando la radio…" />;
+  if (publicAccess.isLoading) return <FullScreenLoader label="Comprobando acceso…" />;
+  if (!publicAccess.data?.granted) return <PublicAccessGate loading={publicLogin.isPending} onUnlock={code => publicLogin.mutate({ code })} />;
   if ((pause.data?.paused || pause.data?.blocked) && !accessUnlocked) return <PauseGate unlockAt={pause.data.unlockAt ? new Date(pause.data.unlockAt).getTime() : Date.now()} loading={checkAccessCode.isPending} onUnlock={code => { setAccessCode(code); checkAccessCode.mutate({ code }); }} />;
 
   return <div className="min-h-screen overflow-hidden bg-[#07111f] text-slate-100">{pageLoadingLabel && <FullScreenLoader label={pageLoadingLabel} />}{showSubmissionLoader && <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-md" role="status" aria-live="polite" aria-label="Enviando petición"><div className="submission-loader-card"><div className="submission-loader"><p>enviando</p><div className="submission-loader-words"><span>título</span><span>artista</span><span>alumno</span><span>clase</span><span>dedicatoria</span><span>datos</span></div></div></div></div>}{pause.data?.bannerEnabled && pause.data.bannerText && <div className="border-b border-fuchsia-300/20 bg-fuchsia-300/10 px-4 py-3 text-center text-sm font-medium text-fuchsia-100">{pause.data.bannerText}</div>}

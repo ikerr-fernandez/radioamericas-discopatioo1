@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
+import { parse as parseCookieHeader } from "cookie";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { accessCodeRole, clearTeamCookie, createTeamSession, LEGACY_SINGLE_USE_CODE, OWNER_ACCESS_CODE, setTeamCookie, TEAM_ACCESS_CODES } from "./_core/teamAuth";
+import { accessCodeRole, clearPublicAccessCookie, clearTeamCookie, createPublicAccessSession, createTeamSession, LEGACY_SINGLE_USE_CODE, OWNER_ACCESS_CODE, PUBLIC_ACCESS_CODE, PUBLIC_ACCESS_COOKIE_NAME, setPublicAccessCookie, setTeamCookie, TEAM_ACCESS_CODES, verifyPublicAccessSession } from "./_core/teamAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { ENV } from "./_core/env";
@@ -60,7 +61,8 @@ const teamOnly = adminProcedure.use(({ ctx, next }) => {
   return next({ ctx });
 });
 const ownerOnly = adminProcedure.use(({ ctx, next }) => {
-  if (ctx.user.loginMethod !== "team-owner" || ctx.user.openId !== "disco-patio-team") throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas el código de propietario." });
+  const isManusOwner = ctx.user.openId !== "disco-patio-team" && (!ENV.ownerOpenId || ctx.user.openId === ENV.ownerOpenId);
+  if (!(ctx.user.loginMethod === "team-owner" && ctx.user.openId === "disco-patio-team") && !isManusOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas el acceso de propietario." });
   return next({ ctx });
 });
 
@@ -92,6 +94,15 @@ export const appRouter = router({
       clearTeamCookie(ctx.res, ctx.req);
       return { success: true } as const;
     }),
+  }),
+  publicAccess: router({
+    status: publicProcedure.query(async ({ ctx }) => ({ granted: Boolean(ctx.user?.role === "admin") || await verifyPublicAccessSession(parseCookieHeader(ctx.req.headers.cookie ?? "")[PUBLIC_ACCESS_COOKIE_NAME]) })),
+    login: publicProcedure.input(z.object({ code: z.string().trim().min(1).max(32) })).mutation(async ({ ctx, input }) => {
+      if (input.code.toUpperCase() !== PUBLIC_ACCESS_CODE) throw new TRPCError({ code: "UNAUTHORIZED", message: "Código público incorrecto." });
+      setPublicAccessCookie(ctx.res, ctx.req, await createPublicAccessSession());
+      return { success: true } as const;
+    }),
+    logout: publicProcedure.mutation(({ ctx }) => { clearPublicAccessCookie(ctx.res, ctx.req); return { success: true } as const; }),
   }),
   activity: router({
     heartbeat: publicProcedure.input(z.object({ sessionId: z.string().regex(/^[a-zA-Z0-9_-]{16,64}$/) })).mutation(async ({ ctx, input }) => { await upsertActiveVisitor({ sessionId: input.sessionId, ...getActivityMetadata(ctx.req) }); return { ok: true } as const; }),
@@ -141,6 +152,10 @@ export const appRouter = router({
       return { valid: permanent || code === LEGACY_SINGLE_USE_CODE ? (permanent || await isAccessCodeAvailable(code)) : await isStudentAccessCodeAvailable(code), permanent };
     }),
     create: publicProcedure.input(requestInput).mutation(async ({ ctx, input }) => {
+      const cookies = parseCookieHeader(ctx.req.headers.cookie ?? "");
+      const hasPublicAccess = Boolean(ctx.user?.role === "admin") || Boolean(await verifyPublicAccessSession(cookies[PUBLIC_ACCESS_COOKIE_NAME]));
+      const hasTeamAccess = ctx.user?.openId === "disco-patio-team";
+      if (!hasPublicAccess && !hasTeamAccess) throw new TRPCError({ code: "UNAUTHORIZED", message: "Introduce el código público para enviar canciones." });
       if (input.termsVersion !== TERMS_VERSION) throw new TRPCError({ code: "BAD_REQUEST", message: "Debes aceptar la versión actual de los términos." });
       if (isLikelyExplicitSong(input.songTitle, input.artist) && !input.explicitWarningAccepted) throw new TRPCError({ code: "BAD_REQUEST", message: "Esta canción parece contener contenido explícito. Confirma que quieres enviarla." });
       const control = await manualControl();
