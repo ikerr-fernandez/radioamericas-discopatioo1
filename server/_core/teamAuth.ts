@@ -6,7 +6,6 @@ import { ENV } from "./env";
 
 export const TEAM_ACCESS_CODES = ["4719RADIEROS2026", "VZXT5D4YGB0XR90P1F62F"] as const;
 export const TEAM_ACCESS_CODE = "VZXT5D4YGB0XR90P1F62F";
-export const OWNER_ACCESS_CODE = "ADMINadminIKEAS1";
 export const LEGACY_SINGLE_USE_CODE = "NV4SXULY75CS1DABNGXD0";
 export const PUBLIC_ACCESS_COOKIE_NAME = "disco_patio_public_access";
 export const PUBLIC_ACCESS_CODE = "JUEVES";
@@ -18,7 +17,6 @@ const safeEqual = (value: string, expectedValue: string) => {
 };
 
 export function accessCodeRole(value: string): "owner" | "team" | null {
-  if (safeEqual(value, OWNER_ACCESS_CODE)) return "owner";
   if (TEAM_ACCESS_CODES.some(code => safeEqual(value, code))) return "team";
   return null;
 }

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { parse as parseCookieHeader } from "cookie";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { accessCodeRole, clearPublicAccessCookie, clearTeamCookie, createPublicAccessSession, createTeamSession, LEGACY_SINGLE_USE_CODE, OWNER_ACCESS_CODE, PUBLIC_ACCESS_CODE, PUBLIC_ACCESS_COOKIE_NAME, setPublicAccessCookie, setTeamCookie, TEAM_ACCESS_CODES, verifyPublicAccessSession } from "./_core/teamAuth";
+import { accessCodeRole, clearPublicAccessCookie, clearTeamCookie, createPublicAccessSession, createTeamSession, LEGACY_SINGLE_USE_CODE, PUBLIC_ACCESS_CODE, PUBLIC_ACCESS_COOKIE_NAME, setPublicAccessCookie, setTeamCookie, TEAM_ACCESS_CODES, verifyPublicAccessSession } from "./_core/teamAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { ENV } from "./_core/env";
@@ -62,7 +62,7 @@ const teamOnly = adminProcedure.use(({ ctx, next }) => {
 });
 const ownerOnly = adminProcedure.use(({ ctx, next }) => {
   const isManusOwner = ctx.user.openId !== "disco-patio-team" && (!ENV.ownerOpenId || ctx.user.openId === ENV.ownerOpenId);
-  if (!(ctx.user.loginMethod === "team-owner" && ctx.user.openId === "disco-patio-team") && !isManusOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas el acceso de propietario." });
+  if (!isManusOwner) throw new TRPCError({ code: "FORBIDDEN", message: "Necesitas iniciar sesión con la cuenta Manus propietaria." });
   return next({ ctx });
 });
 
@@ -148,7 +148,7 @@ export const appRouter = router({
     }),
     checkAccessCode: publicProcedure.input(z.object({ code: z.string().trim().regex(/^[A-Z0-9]{6,21}$/i) })).mutation(async ({ input }) => {
       const code = input.code.toUpperCase();
-      const permanent = accessCodeRole(code) !== null || TEAM_ACCESS_CODES.includes(code as typeof TEAM_ACCESS_CODES[number]) || code === OWNER_ACCESS_CODE;
+      const permanent = accessCodeRole(code) !== null || TEAM_ACCESS_CODES.includes(code as typeof TEAM_ACCESS_CODES[number]);
       return { valid: permanent || code === LEGACY_SINGLE_USE_CODE ? (permanent || await isAccessCodeAvailable(code)) : await isStudentAccessCodeAvailable(code), permanent };
     }),
     create: publicProcedure.input(requestInput).mutation(async ({ ctx, input }) => {
