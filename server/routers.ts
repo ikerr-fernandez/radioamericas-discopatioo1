@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
-import { parse as parseCookieHeader } from "cookie";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { accessCodeRole, clearPublicAccessCookie, clearTeamCookie, createPublicAccessSession, createTeamSession, LEGACY_SINGLE_USE_CODE, PUBLIC_ACCESS_CODE, PUBLIC_ACCESS_COOKIE_NAME, setPublicAccessCookie, setTeamCookie, TEAM_ACCESS_CODES, verifyPublicAccessSession } from "./_core/teamAuth";
+import { accessCodeRole, clearPublicAccessCookie, clearTeamCookie, createTeamSession, LEGACY_SINGLE_USE_CODE, setTeamCookie, TEAM_ACCESS_CODES } from "./_core/teamAuth";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { ENV } from "./_core/env";
@@ -96,11 +95,11 @@ export const appRouter = router({
     }),
   }),
   publicAccess: router({
-    status: publicProcedure.query(async ({ ctx }) => ({ granted: Boolean(ctx.user?.role === "admin") || await verifyPublicAccessSession(parseCookieHeader(ctx.req.headers.cookie ?? "")[PUBLIC_ACCESS_COOKIE_NAME]) })),
+    status: publicProcedure.query(({ ctx }) => ({ granted: Boolean(ctx.user?.role === "admin") })),
     login: publicProcedure.input(z.object({ code: z.string().trim().min(1).max(32) })).mutation(async ({ ctx, input }) => {
-      if (input.code.toUpperCase() !== PUBLIC_ACCESS_CODE) throw new TRPCError({ code: "UNAUTHORIZED", message: "Código público incorrecto." });
-      setPublicAccessCookie(ctx.res, ctx.req, await createPublicAccessSession());
-      return { success: true } as const;
+      void ctx;
+      void input;
+      throw new TRPCError({ code: "FORBIDDEN", message: "El acceso público está cerrado durante la migración. Contacta con el equipo por Instagram o correo." });
     }),
     logout: publicProcedure.mutation(({ ctx }) => { clearPublicAccessCookie(ctx.res, ctx.req); return { success: true } as const; }),
   }),
@@ -152,10 +151,8 @@ export const appRouter = router({
       return { valid: permanent || code === LEGACY_SINGLE_USE_CODE ? (permanent || await isAccessCodeAvailable(code)) : await isStudentAccessCodeAvailable(code), permanent };
     }),
     create: publicProcedure.input(requestInput).mutation(async ({ ctx, input }) => {
-      const cookies = parseCookieHeader(ctx.req.headers.cookie ?? "");
-      const hasPublicAccess = Boolean(ctx.user?.role === "admin") || Boolean(await verifyPublicAccessSession(cookies[PUBLIC_ACCESS_COOKIE_NAME]));
       const hasTeamAccess = ctx.user?.openId === "disco-patio-team";
-      if (!hasPublicAccess && !hasTeamAccess) throw new TRPCError({ code: "UNAUTHORIZED", message: "Introduce el código público para enviar canciones." });
+      if (!hasTeamAccess) throw new TRPCError({ code: "UNAUTHORIZED", message: "El buzón público está cerrado durante la migración. Escribe al equipo por Instagram o correo." });
       if (input.termsVersion !== TERMS_VERSION) throw new TRPCError({ code: "BAD_REQUEST", message: "Debes aceptar la versión actual de los términos." });
       if (isLikelyExplicitSong(input.songTitle, input.artist) && !input.explicitWarningAccepted) throw new TRPCError({ code: "BAD_REQUEST", message: "Esta canción parece contener contenido explícito. Confirma que quieres enviarla." });
       const control = await manualControl();

@@ -59,20 +59,22 @@ function PauseGate({ unlockAt, onUnlock, loading = false }: { unlockAt: number; 
   </div>;
 }
 
-function PublicAccessGate({ onUnlock, loading = false }: { onUnlock: (code: string) => void; loading?: boolean }) {
-  const [code, setCode] = useState("");
+function ClosedPublicNotice() {
   return <div className="flex min-h-screen items-center justify-center bg-[#07111f] px-4 py-8 text-slate-100">
-    <div className="w-full max-w-md rounded-[2rem] border border-cyan-300/20 bg-white/[0.045] p-6 text-center shadow-2xl shadow-black/20 sm:p-9">
-      <div className="radio-dynamic-glow mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10"><KeyRound className="h-8 w-8 text-cyan-300" /></div>
+    <div className="w-full max-w-lg rounded-[2rem] border border-cyan-300/20 bg-white/[0.045] p-6 text-center shadow-2xl shadow-black/20 sm:p-9">
+      <img src={logoPath} alt="Radio Patio Las Américas" className="radio-dynamic-glow mx-auto h-20 w-20 rounded-full border border-cyan-300/25 object-cover" />
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.28em] text-cyan-300">Radio Patio Las Américas</p>
-      <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">Acceso público</h1>
-      <p className="mt-3 text-sm leading-6 text-slate-400">Introduce el código público para entrar en la web y enviar tu canción.</p>
-      <p className="mt-3 text-xs leading-5 text-slate-500">Si tienes algún error o no te funciona bien, escríbenos por Instagram: <a href="https://www.instagram.com/radioamericas_parla" target="_blank" rel="noreferrer" className="text-cyan-200 underline underline-offset-2 hover:text-white">@radioamericas_parla</a></p>
-      <form onSubmit={event => { event.preventDefault(); if (code.trim()) onUnlock(code.trim()); }} className="mt-7 space-y-3">
-        <Input autoFocus required maxLength={32} value={code} onChange={event => setCode(event.target.value)} placeholder="Código público" type="password" className="h-12 border-white/10 bg-[#07111f] text-center font-mono text-base tracking-[0.16em] text-white placeholder:text-slate-600 placeholder:tracking-normal" />
-        <Button disabled={loading || !code.trim()} type="submit" className="h-12 w-full bg-cyan-300 font-semibold text-[#07111f] hover:bg-cyan-200">{loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}Entrar</Button>
-      </form>
-      <nav className="mt-7 flex justify-center gap-4 border-t border-white/10 pt-5 text-xs text-slate-400"><Link href="/aviso-legal" className="underline underline-offset-2 hover:text-white">Aviso legal</Link><Link href="/privacidad" className="underline underline-offset-2 hover:text-white">Privacidad</Link><Link href="/cookies" className="underline underline-offset-2 hover:text-white">Cookies</Link></nav>
+      <h1 className="mt-3 text-2xl font-bold text-white sm:text-3xl">La web pública está cerrada</h1>
+      <p className="mt-4 text-base font-semibold leading-7 text-cyan-100">La web se va a migrar en unos días.</p>
+      <div className="mt-5 rounded-2xl border border-white/10 bg-[#07111f]/80 p-4 text-left text-sm leading-6 text-slate-300">
+        <p className="font-semibold text-white">Las peticiones siguen abiertas.</p>
+        <p className="mt-2">Para enviar una petición, escríbenos por Instagram <a href="https://www.instagram.com/radioamericas_parla" target="_blank" rel="noreferrer" className="text-cyan-200 underline underline-offset-2 hover:text-white">@radioamericas_parla</a> o al correo <a href="mailto:iker.radioamericas@gmail.com" className="text-cyan-200 underline underline-offset-2 hover:text-white">iker.radioamericas@gmail.com</a> con:</p>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-slate-200"><li>Nombre de la canción</li><li>Artista o grupo</li><li>Tu nombre y clase</li><li>Dedicatoria</li></ul>
+      </div>
+      <Link href="/admin"><Button type="button" className="mt-6 h-11 w-full bg-cyan-300 font-semibold text-[#07111f] hover:bg-cyan-200"><KeyRound className="mr-2 h-4 w-4" />Acceso exclusivo para el equipo</Button></Link>
+      <p className="mt-3 text-xs text-slate-500">La gestión interna continúa disponible únicamente para el equipo autorizado.</p>
+      <nav aria-label="Información legal" className="mt-7 flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-white/10 pt-5 text-xs text-slate-400"><Link href="/aviso-legal" className="underline underline-offset-2 hover:text-white">Aviso legal</Link><Link href="/privacidad" className="underline underline-offset-2 hover:text-white">Privacidad</Link><Link href="/cookies" className="underline underline-offset-2 hover:text-white">Política de cookies</Link><CookieSettingsLink /></nav>
+      <p className="mt-5 text-[11px] text-slate-500">Última actualización: {SITE_LAST_UPDATED}</p>
     </div>
   </div>;
 }
@@ -105,11 +107,6 @@ export default function Home() {
   }, [searchText]);
 
   const pause = trpc.requests.status.useQuery(undefined, { refetchInterval: 15_000 });
-  const publicAccess = trpc.publicAccess.status.useQuery();
-  const publicLogin = trpc.publicAccess.login.useMutation({
-    onSuccess: async () => { await publicAccess.refetch(); toast.success("Código aceptado"); },
-    onError: error => toast.error("Código no válido", { description: error.message }),
-  });
   const heartbeat = trpc.activity.heartbeat.useMutation();
   useEffect(() => {
     const storageKey = "radio-patio-activity-session";
@@ -168,11 +165,11 @@ export default function Home() {
   };
 
   if (pause.isLoading) return <FullScreenLoader label="Sincronizando la radio…" />;
-  if (publicAccess.isLoading) return <FullScreenLoader label="Comprobando acceso…" />;
-  if (!publicAccess.data?.granted) return <PublicAccessGate loading={publicLogin.isPending} onUnlock={code => publicLogin.mutate({ code })} />;
-  if ((pause.data?.paused || pause.data?.blocked) && !accessUnlocked) return <PauseGate unlockAt={pause.data.unlockAt ? new Date(pause.data.unlockAt).getTime() : Date.now()} loading={checkAccessCode.isPending} onUnlock={code => { setAccessCode(code); checkAccessCode.mutate({ code }); }} />;
+  return <ClosedPublicNotice />;
+  const pauseUnlockAt = pause.data?.unlockAt;
+  if ((pause.data?.paused || pause.data?.blocked) && !accessUnlocked) return <PauseGate unlockAt={pauseUnlockAt != null ? new Date(pauseUnlockAt as string | number | Date).getTime() : Date.now()} loading={checkAccessCode.isPending} onUnlock={code => { setAccessCode(code); checkAccessCode.mutate({ code }); }} />;
 
-  return <div className="min-h-screen overflow-hidden bg-[#07111f] text-slate-100">{pageLoadingLabel && <FullScreenLoader label={pageLoadingLabel} />}{showSubmissionLoader && <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-md" role="status" aria-live="polite" aria-label="Enviando petición"><div className="submission-loader-card"><div className="submission-loader"><p>enviando</p><div className="submission-loader-words"><span>título</span><span>artista</span><span>alumno</span><span>clase</span><span>dedicatoria</span><span>datos</span></div></div></div></div>}{pause.data?.bannerEnabled && pause.data.bannerText && <div className="border-b border-fuchsia-300/20 bg-fuchsia-300/10 px-4 py-3 text-center text-sm font-medium text-fuchsia-100">{pause.data.bannerText}</div>}
+  return <div className="min-h-screen overflow-hidden bg-[#07111f] text-slate-100">{pageLoadingLabel && <FullScreenLoader label={pageLoadingLabel ?? ""} />}{showSubmissionLoader && <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#020814]/85 p-4 backdrop-blur-md" role="status" aria-live="polite" aria-label="Enviando petición"><div className="submission-loader-card"><div className="submission-loader"><p>enviando</p><div className="submission-loader-words"><span>título</span><span>artista</span><span>alumno</span><span>clase</span><span>dedicatoria</span><span>datos</span></div></div></div></div>}{pause.data?.bannerEnabled && pause.data?.bannerText && <div className="border-b border-fuchsia-300/20 bg-fuchsia-300/10 px-4 py-3 text-center text-sm font-medium text-fuchsia-100">{pause.data?.bannerText}</div>}
     <header className="welcome-header relative z-10 border-b border-white/10 bg-[#07111f]/90 backdrop-blur-xl"><div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-5 lg:px-8"><Link href="/" className="flex min-w-0 items-center gap-2.5"><img src={logoPath} alt="Radio Patio Las Américas" className="h-11 w-11 rounded-full border border-blue-300/30 object-cover sm:h-12 sm:w-12" /><div className="min-w-0"><p className="font-mono text-[9px] uppercase tracking-[0.28em] text-blue-200/70">Radio América</p><p className="truncate text-base font-bold sm:text-lg">Radio Patio Las Américas</p></div></Link><div className="flex items-center gap-2 sm:gap-3"><span className="hidden rounded-full border border-blue-200/15 bg-white/5 px-3 py-1.5 text-xs text-blue-100/70 sm:inline-flex"><span className="mr-2 h-2 w-2 self-center rounded-full bg-cyan-300 shadow-[0_0_14px_#67e8f9]" />Jueves · recreo</span><Link href="/admin"><Button variant="outline" className="border-blue-200/25 bg-transparent px-2.5 text-xs text-blue-50 hover:bg-blue-300/10 sm:px-3 sm:text-sm">{user?.role === "admin" ? "Panel" : "Equipo"}</Button></Link></div></div></header>
     <main>
       {explicitPopupOpen && <div className="fixed inset-0 z-[100] flex min-h-screen items-center justify-center overflow-y-auto bg-[#020814]/95 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="explicit-warning-title"><div className="w-full max-w-2xl rounded-[2rem] border border-amber-300/35 bg-[#101b2d] p-6 shadow-[0_0_80px_rgba(245,158,11,0.18)] sm:p-10"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-amber-300/35 bg-amber-300/10"><ShieldAlert className="h-8 w-8 text-amber-300" /></div><p className="mt-7 text-center font-mono text-[10px] uppercase tracking-[0.28em] text-amber-300">Aviso importante · contenido sensible</p><h2 id="explicit-warning-title" className="mt-3 text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">Esta canción puede ser explícita</h2><p className="mx-auto mt-5 max-w-xl text-center text-base leading-7 text-slate-300">La canción <strong className="text-white">{songTitle || "seleccionada"}</strong> puede incluir lenguaje sexual, insultos o contenido no adecuado para el entorno escolar.</p><div className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-center text-sm leading-6 text-amber-100"><strong>Ojo:</strong> aunque continúes con la petición, puede que no se emita en el patio. El equipo de Radio América hará la revisión final.</div><p className="mt-6 text-center text-lg font-semibold text-white">¿Quieres continuar y enviar esta petición?</p><div className="mt-6 grid gap-3 sm:grid-cols-2"><Button type="button" onClick={() => { setExplicitWarningAccepted(true); setExplicitPopupOpen(false); }} className="h-12 bg-amber-300 font-semibold text-[#07111f] hover:bg-amber-200"><Check className="mr-2 h-5 w-5" />Sí, continuar</Button><Button type="button" onClick={clearExplicitSong} variant="outline" className="h-12 border-white/20 bg-transparent text-slate-100 hover:bg-white/10"><XCircle className="mr-2 h-5 w-5" />No, cambiar canción</Button></div><p className="mt-6 text-center text-xs leading-5 text-slate-500">Esta confirmación solo permite enviar la propuesta para revisión; no garantiza su emisión.</p></div></div>}
